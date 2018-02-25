@@ -3,6 +3,7 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.util.ArrayList;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -10,7 +11,7 @@ public class unstructuredPeer {
 	
 	public static int N_port;
 	public static String N_ip;
-	public static ConcurrentMap<Integer, String[]> RT = new ConcurrentHashMap<Integer, String[]>();
+	public static ConcurrentMap<Integer, ArrayList<String>> RT = new ConcurrentHashMap<Integer, ArrayList<String>>();
 	
 	public static void main(String[] args) {
 		try {
@@ -31,8 +32,8 @@ public class unstructuredPeer {
 			unstructuredPeer.Register(BS_ip, BS_port, uname);
 			for (Integer name: RT.keySet()){
 	            String key =name.toString();
-	            String[] value = RT.get(name);  
-	            System.out.println(key + ":" + value[0] + " " + value[1]);  
+	            ArrayList<String> value = RT.get(name);  
+	            System.out.println(key + ":" + value.get(0) + " " + value.get(1));  
 			} 
 			unstructuredPeer.join(N_ip, N_port);
 		}
@@ -92,21 +93,27 @@ public class unstructuredPeer {
 				}
 				else if (rep[3].equals("1")){
 					System.out.println("Node Registered Successfully.");
-					String[] arr = {rep[4],rep[5]};
+					ArrayList<String> arr = new ArrayList<String>();
+					arr.add(rep[4]); arr.add(rep[5]);
 					RT.put(1, arr);
 				}
 				else if (rep[3].equals("2")){
 					System.out.println("Node Registered Successfully.");
-					String[] arr = {rep[4],rep[5]};
-					String[] arr1= {rep[6],rep[7]};
+					ArrayList<String> arr = new ArrayList<String>();
+					ArrayList<String> arr1 = new ArrayList<String>();
+					arr.add(rep[4]); arr.add(rep[5]);
+					arr1.add(rep[6]); arr1.add(rep[7]);
 					RT.put(1, arr);
 					RT.put(2, arr1);
 				}
 				else if (rep[3].equals("3")){
 					System.out.println("Node Registered Successfully.");
-					String[] arr = {rep[4],rep[5]};
-					String[] arr1= {rep[6],rep[7]};
-					String[] arr2= {rep[8],rep[9]};
+					ArrayList<String> arr = new ArrayList<String>();
+					ArrayList<String> arr1 = new ArrayList<String>();
+					ArrayList<String> arr2 = new ArrayList<String>();
+					arr.add(rep[4]); arr.add(rep[5]);
+					arr1.add(rep[6]); arr1.add(rep[7]);
+					arr1.add(rep[8]); arr1.add(rep[9]);
 					RT.put(1, arr);
 					RT.put(2, arr1);
 					RT.put(3, arr2);
@@ -139,15 +146,18 @@ public class unstructuredPeer {
 	}
 	
 	public static void join(String IP, int Port) throws IOException {
-		String JoinMsg = " JOIN " + N_ip + " " + Integer.toString(N_port);
-		int len = JoinMsg.length() + 4;
-		String joinMsg = String.format("%04d", len) + JoinMsg;
-		for (Integer num: RT.keySet()) {
-			String reply = msgRT(joinMsg, RT.get(num)[0], Integer.parseInt(RT.get(num)[1]));
+		try {
+			String JoinMsg = " JOIN " + N_ip + " " + Integer.toString(N_port);
+			int len = JoinMsg.length() + 4;
+			String joinMsg = String.format("%04d", len) + JoinMsg;
+			for (Integer num: RT.keySet()) {
+				String reply = msgRT(joinMsg, RT.get(num).get(0), Integer.parseInt(RT.get(num).get(1)));
+			}
+			
+		} catch (NumberFormatException e) {
+			System.err.println("Routinf table contains non-numeric characters in the port field.");
 		}
-		/*String reply = msgRT(joinMsg, IP, Port);
-		String[] rep = reply.split(" ");
-		System.out.println(reply);*/
+		
 	}
 
 }
