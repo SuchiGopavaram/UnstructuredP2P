@@ -11,7 +11,7 @@ public class unstructuredPeer {
 	
 	public static int N_port;
 	public static String N_ip;
-	public static ConcurrentMap<Integer, ArrayList<String>> RT = new ConcurrentHashMap<Integer, ArrayList<String>>();
+	public static ConcurrentMap<String, ArrayList<String>> RT = new ConcurrentHashMap<String, ArrayList<String>>();
 	
 	public static void main(String[] args) {
 		try {
@@ -30,10 +30,10 @@ public class unstructuredPeer {
 				System.exit(1);
 			}
 			unstructuredPeer.Register(BS_ip, BS_port, uname);
-			for (Integer name: RT.keySet()){
+			for (String name: RT.keySet()){
 	            String key =name.toString();
 	            ArrayList<String> value = RT.get(name);  
-	            System.out.println(key + ":" + value.get(0) + " " + value.get(1));  
+	            System.out.println(key + " : " + value.get(0));  
 			} 
 			unstructuredPeer.join(N_ip, N_port);
 		}
@@ -94,29 +94,29 @@ public class unstructuredPeer {
 				else if (rep[3].equals("1")){
 					System.out.println("Node Registered Successfully.");
 					ArrayList<String> arr = new ArrayList<String>();
-					arr.add(rep[4]); arr.add(rep[5]);
-					RT.put(1, arr);
+					arr.add(rep[5]);
+					RT.put(rep[4], arr);
 				}
 				else if (rep[3].equals("2")){
 					System.out.println("Node Registered Successfully.");
 					ArrayList<String> arr = new ArrayList<String>();
 					ArrayList<String> arr1 = new ArrayList<String>();
-					arr.add(rep[4]); arr.add(rep[5]);
-					arr1.add(rep[6]); arr1.add(rep[7]);
-					RT.put(1, arr);
-					RT.put(2, arr1);
+					arr.add(rep[5]);
+					arr1.add(rep[7]);
+					RT.put(rep[4], arr);
+					RT.put(rep[6], arr1);
 				}
 				else if (rep[3].equals("3")){
 					System.out.println("Node Registered Successfully.");
 					ArrayList<String> arr = new ArrayList<String>();
 					ArrayList<String> arr1 = new ArrayList<String>();
 					ArrayList<String> arr2 = new ArrayList<String>();
-					arr.add(rep[4]); arr.add(rep[5]);
-					arr1.add(rep[6]); arr1.add(rep[7]);
-					arr1.add(rep[8]); arr1.add(rep[9]);
-					RT.put(1, arr);
-					RT.put(2, arr1);
-					RT.put(3, arr2);
+					arr.add(rep[5]);
+					arr1.add(rep[7]);
+					arr2.add(rep[9]);
+					RT.put(rep[4], arr);
+					RT.put(rep[6], arr1);
+					RT.put(rep[8], arr2);
 				}
 				else {
 					System.out.println("Received unknown message.");
@@ -150,8 +150,8 @@ public class unstructuredPeer {
 			String JoinMsg = " JOIN " + N_ip + " " + Integer.toString(N_port);
 			int len = JoinMsg.length() + 4;
 			String joinMsg = String.format("%04d", len) + JoinMsg;
-			for (Integer num: RT.keySet()) {
-				String reply = msgRT(joinMsg, RT.get(num).get(0), Integer.parseInt(RT.get(num).get(1)));
+			for (String num: RT.keySet()) {
+				String reply = msgRT(joinMsg, num, Integer.parseInt(RT.get(num).get(0)));
 			}
 			
 		} catch (NumberFormatException e) {
