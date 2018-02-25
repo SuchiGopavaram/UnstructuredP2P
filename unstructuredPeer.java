@@ -3,13 +3,14 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
-import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 public class unstructuredPeer {
 	
 	public static int N_port;
 	public static String N_ip;
-	public static HashMap<Integer, String[]> RT = new HashMap<Integer, String[]>();
+	public static ConcurrentMap<Integer, String[]> RT = new ConcurrentHashMap<Integer, String[]>();
 	
 	public static void main(String[] args) {
 		try {
@@ -33,6 +34,7 @@ public class unstructuredPeer {
 	            String[] value = RT.get(name);  
 	            System.out.println(key + ":" + value[0] + " " + value[1]);  
 			} 
+			unstructuredPeer.join(N_ip, N_port);
 		}
 		
 		catch (NumberFormatException e) {
@@ -66,7 +68,7 @@ public class unstructuredPeer {
 	}
 	
 	public static void Register(String ip, int Port, String uname) throws IOException {
-		String msg1 = " REG "+ N_ip + " " + Integer.toString(N_port) +" " + uname;
+		String msg1 = " REG "+ N_ip + " " + Integer.toString(N_port) + " " + uname;
 		int len = msg1.length() + 4;
 		String msg = String.format("%04d", len) + msg1;
 		String reply =  msgRT(msg,ip,Port);
@@ -136,8 +138,16 @@ public class unstructuredPeer {
 
 	}
 	
-	public static void join() {
-		
+	public static void join(String IP, int Port) throws IOException {
+		String JoinMsg = " JOIN " + N_ip + " " + Integer.toString(N_port);
+		int len = JoinMsg.length() + 4;
+		String joinMsg = String.format("%04d", len) + JoinMsg;
+		for (Integer num: RT.keySet()) {
+			String reply = msgRT(joinMsg, RT.get(num)[0], Integer.parseInt(RT.get(num)[1]));
+		}
+		/*String reply = msgRT(joinMsg, IP, Port);
+		String[] rep = reply.split(" ");
+		System.out.println(reply);*/
 	}
 
 }
