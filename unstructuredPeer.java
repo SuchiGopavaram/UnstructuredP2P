@@ -23,7 +23,6 @@ public class unstructuredPeer {
 			N_ip = Node_ip.getHostAddress();
 			BS_ip = args[1];
 			logger.log(Level.INFO, "Using the BootStrap Server with IP: " + BS_ip + " Port: " + BS_port);
-			String uname = args[4];
 			logger.log(Level.INFO, "Initializing node with IP address: " + N_ip + " on Port: " + N_port);
 			N_port = Integer.parseInt(args[0]);
 			BS_port = Integer.parseInt(args[2]);
@@ -48,8 +47,7 @@ public class unstructuredPeer {
 			System.err.println("Please give an integer port number(s).");
 			logger.log(Level.WARNING, "User gave a non-numeric port number(s).");
 			System.exit(1);
-		}
-		catch (IOException e) {
+		} catch (IOException e) {
 			System.out.println("IOException Occured.");
 			System.err.println("Check the IP address. Only numbers less than 255 should be given in each field of IP.");
 			logger.log(Level.WARNING, "IOException Occured. "
