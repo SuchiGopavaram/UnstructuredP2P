@@ -11,7 +11,7 @@ import java.util.logging.Level;
 
 public class peerListen extends Thread{
 	public static DatagramSocket Sock;
-	public static Logger logger;
+	//public static Logger logger;
 	
 	public peerListen() {
 		
