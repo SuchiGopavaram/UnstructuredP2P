@@ -41,6 +41,7 @@ public class unstructuredPeer {
 	            System.out.println(key + " : " + RT.get(name));  
 			} 
 			logger.log(Level.INFO, "Trying to join with the nodes provided by the BootStrap server.");
+			System.out.println("Sending join messages to the IPs received from Bootstrapper");
 			unstructuredPeer.join();
 		}
 		
@@ -83,11 +84,11 @@ public class unstructuredPeer {
 		return reply;
 	}
 	
-	public static void Register(String uname) throws IOException {
+	public static void Register( String uname) throws IOException {
 		String msg1 = " REG "+ N_ip + " " + Integer.toString(N_port) + " " + uname;
 		int len = msg1.length() + 4;
 		String msg = String.format("%04d", len) + msg1;
-		String reply =  msgRT(msg,BS_ip, BS_port);
+		String reply =  msgRT(msg,BS_ip,BS_port);
 		String[] rep = reply.split(" ");
 		if (rep[1].equals("REGOK")) {
 			if (rep[rep.length - 1].equals("9998")) {
