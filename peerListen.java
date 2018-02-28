@@ -6,6 +6,7 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.util.logging.Logger;
 import java.util.logging.Level;
+import UnstructuredP2P.unstructuredPeer;
 
 public class peerListen extends Thread{
 	public static DatagramSocket Sock;

@@ -12,8 +12,8 @@ public class unstructuredPeer {
 	
 	public static int N_port;
 	public static String N_ip;
-	public static String BS_ip;
 	public static int BS_port;
+	public static String BS_ip;
 	public static Logger logger;
 	public static ConcurrentMap<String, String> RT = new ConcurrentHashMap<String, String>();
 	
@@ -21,15 +21,13 @@ public class unstructuredPeer {
 		try {
 			InetAddress Node_ip = InetAddress.getLocalHost();
 			N_ip = Node_ip.getHostAddress();
-			BS_port = -1;
-			BS_ip = args[2];
+			BS_ip = args[1];
 			logger.log(Level.INFO, "Using the BootStrap Server with IP: " + BS_ip + " Port: " + BS_port);
 			String uname = args[4];
 			logger.log(Level.INFO, "Initializing node with IP address: " + N_ip + " on Port: " + N_port);
-			if (args[0].equals("REG")) {
-				N_port = Integer.parseInt(args[1]);
-				BS_port = Integer.parseInt(args[3]);
-			}
+			N_port = Integer.parseInt(args[1]);
+			BS_port = Integer.parseInt(args[3]);
+
 
 			if ((N_port <= 5000 || N_port >= 65535) || (BS_port <= 5000 || BS_port >= 65535 )) {
 				System.out.println("Please type an integer in the range of 5001 - 65535 for port number(s).");
@@ -43,7 +41,7 @@ public class unstructuredPeer {
 	            System.out.println(key + " : " + RT.get(name));  
 			} 
 			logger.log(Level.INFO, "Trying to join with the nodes provided by the BootStrap server.");
-			unstructuredPeer.join(N_ip, N_port);
+			unstructuredPeer.join();
 		}
 		
 		catch (NumberFormatException e) {
@@ -159,7 +157,7 @@ public class unstructuredPeer {
 
 	}
 	
-	public static void join(String IP, int Port) throws IOException {
+	public static void join() throws IOException {
 		try {
 			String JoinMsg = " JOIN " + N_ip + " " + Integer.toString(N_port);
 			int len = JoinMsg.length() + 4;
@@ -180,6 +178,9 @@ public class unstructuredPeer {
 		} catch (NumberFormatException e) {
 			System.err.println("Routing table contains non-numeric characters in the port field.");
 			logger.log(Level.WARNING, "Routing table contains non-numeric characters in the port field.");
+		}
+		catch (IOException e) {
+			System.err.println("I/O erro occured while joinin to the network!");
 		}
 		
 	}
