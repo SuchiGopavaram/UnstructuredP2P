@@ -6,7 +6,7 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.util.logging.Logger;
 import java.util.logging.Level;
-import UnstructuredP2P.unstructuredPeer;
+//import UnstructuredP2P.unstructuredPeer;
 
 public class peerListen extends Thread{
 	public static DatagramSocket Sock;
@@ -22,8 +22,9 @@ public class peerListen extends Thread{
 				try {
 					String rcvReq = rcv();
 					String[] msg = rcvReq.split(" ");
-					if (Integer.parseInt(msg[0])!=rcvReq.length()) {
+					if (Integer.parseInt(msg[0]) != rcvReq.length()) {
 						System.out.println("corrupted message received. Going to listening mode.");
+						logger.log(Level.WARNING, "corrupted message received. Going to listening mode.");
 						break;
 					}
 					String IP = msg[2];
@@ -32,7 +33,7 @@ public class peerListen extends Thread{
 					switch (msg[1]) {
 					case "JOIN":
 						unstructuredPeer.RT.put(IP,msg[3]);
-						if(unstructuredPeer.RT.get(IP)==msg[3]) {
+						if(unstructuredPeer.RT.get(IP) == msg[3]) {
 							send_msg = "0013 JOINOK 0";
 						}
 						else {
@@ -76,6 +77,7 @@ public class peerListen extends Thread{
 		byte[] rcv = new byte[1023];
 		DatagramPacket rcvpkt = new DatagramPacket(rcv, rcv.length);
 		Sock.receive(rcvpkt);
+		logger.log(Level.INFO, "Packet received.");
 		String reply = new String(rcvpkt.getData(),0,rcvpkt.getLength());
 		System.out.println(reply);
 		Sock.close();
@@ -90,6 +92,7 @@ public class peerListen extends Thread{
 		byte[] send = Message.getBytes();
 		DatagramPacket sndpkt = new DatagramPacket(send, send.length, IP, Port);
 		Sock.send(sndpkt);
+		logger.log(Level.INFO, "Packet sent.");
 		Sock.close();
 		logger.log(Level.INFO, "Socket has been closed.");
 	}

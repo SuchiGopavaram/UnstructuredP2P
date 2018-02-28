@@ -28,8 +28,6 @@ public class unstructuredPeer {
 			logger.log(Level.INFO, "Initializing node with IP address: " + N_ip + " on Port: " + N_port);
 			N_port = Integer.parseInt(args[0]);
 			BS_port = Integer.parseInt(args[2]);
-			N_port = Integer.parseInt(args[0]);
-			BS_port = Integer.parseInt(args[2]);
 
 			if ((N_port <= 5000 || N_port >= 65535) || (BS_port <= 5000 || BS_port >= 65535 )) {
 				System.out.println("Please type an integer in the range of 5001 - 65535 for port number(s).");
@@ -177,7 +175,7 @@ public class unstructuredPeer {
 			logger.log(Level.WARNING, "Routing table contains non-numeric characters in the port field.");
 		}
 		catch (IOException e) {
-			System.err.println("I/O erro occured while joinin to the network!");
+			System.err.println("I/O error occured while joining to the network!");
 		} 
 		
 	}
@@ -185,51 +183,65 @@ public class unstructuredPeer {
 	public static void leave(String uname) {
 		while (true) {	
 			try {
-				String LeaveMsg = " DEL IPADDRESS " + N_ip + " " + Integer.toString(N_port) +" "+ uname;
+				String LeaveMsg = " DEL IPADDRESS " + N_ip + " " + Integer.toString(N_port) + " "+ uname;
 				int len = LeaveMsg.length() + 4;
 				LeaveMsg = String.format("%04d",  len) + LeaveMsg;
-				for(int i =0; i<3; i++) {
+				
+				for(int i = 0; i < 3; i++) {
 					String reply = msgRT(LeaveMsg, BS_ip, BS_port);
 					String[] bs_reply = reply.split(" ");
 					if (bs_reply[bs_reply.length - 1].equals("1")) {
-						System.out.println("Left Bootstrapper Successfully");
+						System.out.println("Left Bootstrap Server Successfully.");
+						logger.log(Level.INFO, "Left Bootstrap Server Successfully.");
 						break;
 					}
 					else if(bs_reply[1].equals("DEL")) {
 						if (bs_reply[bs_reply.length - 1].equals("-1")) {
-							System.out.println("Error in DEL Command");
+							System.out.println("Error in DEL Command.");
+							logger.log(Level.WARNING, "Error in DEL Command.");
 						}
 						else if (bs_reply[bs_reply.length - 1].equals("9998")) {
-							System.out.println("(IP Address + Port ) not registered for username");
+							System.out.println("(IP Address + Port ) not registered for username.");
+							logger.log(Level.WARNING, "(IP Address + Port ) not registered for username.");
 						}
 						else if (bs_reply[bs_reply.length - 1].equals("9999")) {
-							System.out.println("Username not registered with bootstrapper");
+							System.out.println("Username not registered with BootStrap Server.");
+							logger.log(Level.WARNING, "Username not registered with BootStrap Server.");
 						}
 						System.exit(1);
 					}
 					else {
-						System.out.println("Bootstrapper did not remove my IP from it's List! Trying again. "+Integer.toString(3-(i+1))+" times remaining");
+						System.out.println("Bootstrapper did not remove my IP from it's List! Trying again. "
+								+ Integer.toString(3 - (i + 1))+" times remaining");
+						logger.log(Level.WARNING, "Bootstrapper did not remove my IP from it's List! Trying again. "
+								+ Integer.toString(3 - (i + 1)) + " times remaining");
 					}
 				}	
 				for (String num: RT.keySet()) {
-					for(int i =0; i<3; i++) {
+					for(int i = 0; i < 3; i++) {
 						String reply = msgRT(LeaveMsg, num, Integer.parseInt(RT.get(num)));
 						String[] node_reply = reply.split(" ");
-						if (node_reply[2]!="0") {
-							System.out.println("Left from "+num+" node Successfully");
+						if (node_reply[2] != "0") {
+							System.out.println("Left from " + num + " node Successfully");
+							logger.log(Level.INFO, "Left from " + num + " node Successfully");
 							break;
 						}
 						else if (node_reply[2]=="9999") {
-							System.out.println("Node "+num+" did not remove my IP from it's Routing Table! Trying again. "+Integer.toString(3-(i+1))+" times remaining");
+							System.out.println("Node " + num + " did not remove my IP from it's Routing Table! Trying again. " 
+									+ Integer.toString(3 - (i + 1))+" times remaining");
+							logger.log(Level.WARNING, "Node" + num + " did not remove my IP from it's Routing Table! Trying again. "
+									+ Integer.toString(3 - (i + 1))+" times remaining");
 						}
 					}	
 				}
 			}
 			catch (IOException e) {
-				System.err.println("I/O erro occurred while joinin to the network!");
+				System.err.println("I/O error occurred while joining to the network.");
+				logger.log(Level.WARNING, "I/O error occurred while joining to the network.");
 			}
 			catch (NumberFormatException e) {
 				System.err.println("Routing table contains non-numeric characters in the port field.");
+				logger.log(Level.WARNING, "Routing table contains non-numeric characters in the port field.");
 			}
 		}
 	}
