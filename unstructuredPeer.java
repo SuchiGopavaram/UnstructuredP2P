@@ -21,6 +21,10 @@ public class unstructuredPeer {
 	
 	public static void main(String[] args) {
 		try {
+			System.out.println("Starting Listen thread");
+			new Thread(new peerListen()).start();
+			logger.log(Level.INFO,"Listen thread strated");
+			
 			InetAddress Node_ip = InetAddress.getLocalHost();
 			N_ip = Node_ip.getHostAddress();
 			BS_ip = args[1];
@@ -34,21 +38,35 @@ public class unstructuredPeer {
 				logger.log(Level.WARNING, "User assigned a port number which is out of port ranges.");
 				System.exit(1);
 			}
-			logger.log(Level.INFO, "Trying to register with the BootStrap server.");
+			
 			System.out.println("Enter the Username that you want this node to connect to:");
 			BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
 			String uname = br.readLine();
 			System.out.println("Using username: "+uname);
 			
+			logger.log(Level.INFO, "Trying to register with the BootStrap server with username given by user: "+uname);
 			System.out.println("Registering to the Network in Bootstrapper");
 			unstructuredPeer.Register(uname);
+			
+			logger.log(Level.INFO, "Trying to join with the nodes provided by the BootStrap server.");
+			System.out.println("Sending join messages to the IPs received from Bootstrapper");
+			unstructuredPeer.join();
+			
+			System.out.println("Routing Table:");
 			for (String name: RT.keySet()){
 	            String key =name.toString(); 
 	            System.out.println(key + " : " + RT.get(name));  
 			} 
-			logger.log(Level.INFO, "Trying to join with the nodes provided by the BootStrap server.");
-			System.out.println("Sending join messages to the IPs received from Bootstrapper");
-			unstructuredPeer.join();
+			
+			logger.log(Level.INFO, "Trying to leave from BootStrap Server and nodes in the Routing Table.");
+			System.out.println("Sending leave messages to the BootStrap Server and nodes");
+			unstructuredPeer.leave(uname);
+			
+			System.out.println("Routing Table:");
+			for (String name: RT.keySet()){
+	            String key =name.toString(); 
+	            System.out.println(key + " : " + RT.get(name));  
+			} 
 		}
 		
 		catch (NumberFormatException e) {
@@ -152,32 +170,33 @@ public class unstructuredPeer {
 	}
 	
 	public static void join()  {
-
-		try {
-			String JoinMsg = " JOIN " + N_ip + " " + Integer.toString(N_port);
-			int len = JoinMsg.length() + 4;
-			JoinMsg = String.format("%04d", len) + JoinMsg;
-			for (String num: RT.keySet()) {
-				String reply = msgRT(JoinMsg, num, Integer.parseInt(RT.get(num)));
-				String[] node_reply = reply.split(" ");
-				if (node_reply[2] != "0") {
-					RT.remove(num);
-					logger.log(Level.INFO, num + " has been removed from the routing table as the JOIN message failed.");
+		while(true) {
+			try {
+				String JoinMsg = " JOIN " + N_ip + " " + Integer.toString(N_port);
+				int len = JoinMsg.length() + 4;
+				JoinMsg = String.format("%04d", len) + JoinMsg;
+				for (String num: RT.keySet()) {
+					String reply = msgRT(JoinMsg, num, Integer.parseInt(RT.get(num)));
+					String[] node_reply = reply.split(" ");
+					if (node_reply[2] != "0") {
+						RT.remove(num);
+						logger.log(Level.INFO, num + " has been removed from the routing table as the JOIN message failed.");
+					}
+					if (node_reply[2] == "9999") {
+						System.out.println("Node " + num + " did not added my IP in it's Routing Table!");
+						logger.log(Level.INFO, "Node " + num + " did not added my IP in it's Routing Table!");
+					}
 				}
-				if (node_reply[2] == "9999") {
-					System.out.println("Node " + num + " did not added my IP in it's Routing Table!");
-					logger.log(Level.INFO, "Node " + num + " did not added my IP in it's Routing Table!");
-				}
+				break;
+				
+			} catch (NumberFormatException e) {
+				System.err.println("Routing table contains non-numeric characters in the port field.");
+				logger.log(Level.WARNING, "Routing table contains non-numeric characters in the port field.");
 			}
-			
-		} catch (NumberFormatException e) {
-			System.err.println("Routing table contains non-numeric characters in the port field.");
-			logger.log(Level.WARNING, "Routing table contains non-numeric characters in the port field.");
+			catch (IOException e) {
+				System.err.println("I/O error occured while joining to the network!");
+			} 
 		}
-		catch (IOException e) {
-			System.err.println("I/O error occured while joining to the network!");
-		} 
-		
 	}
 	
 	public static void leave(String uname) {
@@ -208,7 +227,6 @@ public class unstructuredPeer {
 							System.out.println("Username not registered with BootStrap Server.");
 							logger.log(Level.WARNING, "Username not registered with BootStrap Server.");
 						}
-						System.exit(1);
 					}
 					else {
 						System.out.println("Bootstrapper did not remove my IP from it's List! Trying again. "
@@ -226,7 +244,7 @@ public class unstructuredPeer {
 							logger.log(Level.INFO, "Left from " + num + " node Successfully");
 							break;
 						}
-						else if (node_reply[2]=="9999") {
+						else if (node_reply[2] == "9999") {
 							System.out.println("Node " + num + " did not remove my IP from it's Routing Table! Trying again. " 
 									+ Integer.toString(3 - (i + 1))+" times remaining");
 							logger.log(Level.WARNING, "Node" + num + " did not remove my IP from it's Routing Table! Trying again. "
@@ -234,6 +252,7 @@ public class unstructuredPeer {
 						}
 					}	
 				}
+				break;
 			}
 			catch (IOException e) {
 				System.err.println("I/O error occurred while joining to the network.");
