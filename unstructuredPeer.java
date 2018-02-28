@@ -25,8 +25,8 @@ public class unstructuredPeer {
 			logger.log(Level.INFO, "Using the BootStrap Server with IP: " + BS_ip + " Port: " + BS_port);
 			String uname = args[4];
 			logger.log(Level.INFO, "Initializing node with IP address: " + N_ip + " on Port: " + N_port);
-			N_port = Integer.parseInt(args[1]);
-			BS_port = Integer.parseInt(args[3]);
+			N_port = Integer.parseInt(args[0]);
+			BS_port = Integer.parseInt(args[2]);
 
 
 			if ((N_port <= 5000 || N_port >= 65535) || (BS_port <= 5000 || BS_port >= 65535 )) {
@@ -157,7 +157,7 @@ public class unstructuredPeer {
 
 	}
 	
-	public static void join() throws IOException {
+	public static void join() {
 		try {
 			String JoinMsg = " JOIN " + N_ip + " " + Integer.toString(N_port);
 			int len = JoinMsg.length() + 4;
