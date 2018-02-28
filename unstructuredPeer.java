@@ -34,7 +34,6 @@ public class unstructuredPeer {
 				logger.log(Level.WARNING, "User assigned a port number which is out of port ranges.");
 				System.exit(1);
 			}
-			logger.log(Level.INFO, "Trying to register with the BootStrap server.");
 			unstructuredPeer.Register(uname);
 			for (String name: RT.keySet()){
 	            String key =name.toString(); 
