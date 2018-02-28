@@ -139,6 +139,13 @@ public class unstructuredPeer {
 			String joinMsg = String.format("%04d", len) + JoinMsg;
 			for (String num: RT.keySet()) {
 				String reply = msgRT(joinMsg, num, Integer.parseInt(RT.get(num)));
+				String[] node_reply = reply.split(" ");
+				if (node_reply[2]!="0") {
+					RT.remove(num);
+				}
+				else if (node_reply[2]=="9999") {
+					System.out.println("Node "+num+" did not added my IP in it's Routing Table!");
+				}
 			}
 			
 		} catch (NumberFormatException e) {
