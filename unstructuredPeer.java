@@ -8,6 +8,7 @@ import java.net.InetAddress;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Logger;
+import java.util.logging.FileHandler;
 import java.util.logging.Level;
 
 public class unstructuredPeer {
@@ -16,11 +17,14 @@ public class unstructuredPeer {
 	public static String N_ip;
 	public static int BS_port;
 	public static String BS_ip;
-	public static Logger logger;
+	public static Logger logger = Logger.getLogger("NodeLog");
+	public static FileHandler log_file;
+
 	public static ConcurrentMap<String, String> RT = new ConcurrentHashMap<String, String>();
 	
 	public static void main(String[] args) {
 		try {
+			log_file = new FileHandler("Node.Log");
 			System.out.println("Starting Listen thread");
 			new Thread(new peerListen()).start();
 			logger.log(Level.INFO,"Listen thread strated");

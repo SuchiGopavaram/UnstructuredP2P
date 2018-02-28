@@ -7,11 +7,13 @@ import java.net.InetAddress;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.util.logging.Logger;
+import java.util.logging.FileHandler;
 import java.util.logging.Level;
 
 public class peerListen extends Thread{
 	public static DatagramSocket Sock;
-	public static Logger logger;
+	public static Logger logger = Logger.getLogger("ListenLog");
+	public static FileHandler log_file;
 	
 	public peerListen() {
 		
@@ -21,6 +23,7 @@ public class peerListen extends Thread{
 		while(true) {
 			while(true) {
 				try {
+					log_file = new FileHandler("Listen.Log");
 					String rcvReq = rcv();
 					String[] msg = rcvReq.split(" ");
 					if (Integer.parseInt(msg[0]) != rcvReq.length()) {
@@ -71,7 +74,16 @@ public class peerListen extends Thread{
 					System.err.println("Received alphabets in port number.");
 					logger.log(Level.WARNING, "Received alphabets in port number.");
 					break;
+				} catch (SecurityException e) {
+					System.err.println("SecurityException occurred.");
+					logger.log(Level.WARNING, "SecurityException occurred.");
+					break;
+				} catch (IOException e) {
+					System.err.println("IOException occured.");
+					logger.log(Level.WARNING, "IOException occured.");
+					break;
 				}
+				
 			}
 		}
 	}
