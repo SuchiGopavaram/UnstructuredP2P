@@ -21,13 +21,15 @@ public class unstructuredPeer {
 	
 	public static void main(String[] args) {
 		try {
+			System.out.println("Starting Listen thread");
+			new Thread(new peerListen()).start();
+			logger.log(Level.INFO,"Listen thread strated");
+			
 			InetAddress Node_ip = InetAddress.getLocalHost();
 			N_ip = Node_ip.getHostAddress();
 			BS_ip = args[1];
 			logger.log(Level.INFO, "Using the BootStrap Server with IP: " + BS_ip + " Port: " + BS_port);
 			logger.log(Level.INFO, "Initializing node with IP address: " + N_ip + " on Port: " + N_port);
-			N_port = Integer.parseInt(args[0]);
-			BS_port = Integer.parseInt(args[2]);
 			N_port = Integer.parseInt(args[0]);
 			BS_port = Integer.parseInt(args[2]);
 
@@ -36,21 +38,35 @@ public class unstructuredPeer {
 				logger.log(Level.WARNING, "User assigned a port number which is out of port ranges.");
 				System.exit(1);
 			}
-			logger.log(Level.INFO, "Trying to register with the BootStrap server.");
+			
 			System.out.println("Enter the Username that you want this node to connect to:");
 			BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
 			String uname = br.readLine();
 			System.out.println("Using username: "+uname);
 			
+			logger.log(Level.INFO, "Trying to register with the BootStrap server with username given by user: "+uname);
 			System.out.println("Registering to the Network in Bootstrapper");
 			unstructuredPeer.Register(uname);
+			
+			logger.log(Level.INFO, "Trying to join with the nodes provided by the BootStrap server.");
+			System.out.println("Sending join messages to the IPs received from Bootstrapper");
+			unstructuredPeer.join();
+			
+			System.out.println("Routing Table:");
 			for (String name: RT.keySet()){
 	            String key =name.toString(); 
 	            System.out.println(key + " : " + RT.get(name));  
 			} 
-			logger.log(Level.INFO, "Trying to join with the nodes provided by the BootStrap server.");
-			System.out.println("Sending join messages to the IPs received from Bootstrapper");
-			unstructuredPeer.join();
+			
+			logger.log(Level.INFO, "Trying to leave from BootStrap Server and nodes in the Routing Table.");
+			System.out.println("Sending leave messages to the BootStrap Server and nodes");
+			unstructuredPeer.leave(uname);
+			
+			System.out.println("Routing Table:");
+			for (String name: RT.keySet()){
+	            String key =name.toString(); 
+	            System.out.println(key + " : " + RT.get(name));  
+			} 
 		}
 		
 		catch (NumberFormatException e) {
@@ -208,7 +224,8 @@ public class unstructuredPeer {
 						System.exit(1);
 					}
 					else {
-						System.out.println("Bootstrapper did not remove my IP from it's List! Trying again. "+Integer.toString(3-(i+1))+" times remaining");
+						System.out.println("Bootstrapper did not remove my IP from it's List! Trying again. "
+								+ Integer.toString(3-(i+1))+" times remaining");
 					}
 				}	
 				for (String num: RT.keySet()) {
