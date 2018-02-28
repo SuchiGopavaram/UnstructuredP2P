@@ -4,10 +4,9 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
-import java.net.SocketException;
-import java.net.UnknownHostException;
+import UnstructuredP2P.unstructuredPeer;
 
-public class peerListen extends Thread{
+public class peerListen extends Thread {
 	static DatagramSocket Sock;
 	
 	public peerListen() {
@@ -16,13 +15,55 @@ public class peerListen extends Thread{
 	
 	public void run() {
 		while(true) {
-			try {
-				String rcvReq = rcv();
-			} catch (IOException e) {
-				System.err.println("IOException Occured.");
-				System.exit(1);
+			while(true) {
+				try {
+					String rcvReq = rcv();
+					String[] msg = rcvReq.split(" ");
+					if (Integer.parseInt(msg[0])!=rcvReq.length()) {
+						System.out.println("corrupted message received. Going to listening mode.");
+						break;
+					}
+					String IP = msg[2];
+					int Port = Integer.parseInt(msg[3]);
+					String send_msg;
+					switch (msg[1]) {
+					case "JOIN":
+						unstructuredPeer.RT.put(IP,msg[3]);
+						if(unstructuredPeer.RT.get(IP)==msg[3]) {
+							send_msg = "0013 JOINOK 0";
+						}
+						else {
+							send_msg = "0016 JOINOK 9999";
+						}
+						send(send_msg,IP,Port);
+						break;
+					case "LEAVE":
+						unstructuredPeer.RT.remove(IP, msg[3]);
+						if(unstructuredPeer.RT.get(IP)==msg[3]) {
+							send_msg = "0014 LEAVEOK 0";
+						}
+						else {
+							send_msg = "0017 LEAVEOK 9999";
+						}
+						send(send_msg,IP,Port);
+						break;
+					case "QUERY":
+						//Query code
+						break;
+					default:
+						break;
+					}
+					break;
+				} 
+				catch (IOException e) {
+					System.err.println("IOException Occured.");
+					break;
+				}
+				catch (NumberFormatException e1) {
+					System.err.println("Received alphabets in port number.");
+					break;
+				}
 			}
-			
 		}
 	}
 	
