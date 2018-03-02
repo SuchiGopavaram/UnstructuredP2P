@@ -49,8 +49,7 @@ public class unstructuredPeer {
 			logger.log(Level.INFO, "Socket has been created.");
 			
 			System.out.println("Enter the Username that you want this node to connect to:");
-			BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
-			String uname = br.readLine();
+			String uname = "Nodes20";
 			System.out.println("Using username: "+uname);
 			
 			logger.log(Level.INFO, "Trying to register with the BootStrap server with username given by user: "+uname);
