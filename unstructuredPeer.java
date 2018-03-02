@@ -5,6 +5,7 @@ import java.io.InputStreamReader;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.util.Scanner;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Logger;
@@ -19,13 +20,14 @@ public class unstructuredPeer {
 	public static String BS_ip;
 	public static Logger logger = Logger.getLogger("NodeLog");
 	public static FileHandler log_file;
-
-	public static ConcurrentMap<String, String> RT = new ConcurrentHashMap<String, String>();
+	public static DatagramSocket sock;
+	public static ConcurrentMap<String, String> RT = peerListen.RT;
 	
 	public static void main(String[] args) {
 		try {
 			log_file = new FileHandler("Node.Log");
-			System.out.println("Starting Listen thread");
+			logger.setUseParentHandlers(false);
+			//System.out.println("Starting Listen thread");
 			new Thread(new peerListen()).start();
 			logger.log(Level.INFO,"Listen thread strated");
 			
@@ -43,34 +45,57 @@ public class unstructuredPeer {
 				System.exit(1);
 			}
 			
+			sock = peerListen.Sock;
+			logger.log(Level.INFO, "Socket has been created.");
+			
 			System.out.println("Enter the Username that you want this node to connect to:");
 			BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
 			String uname = br.readLine();
 			System.out.println("Using username: "+uname);
 			
 			logger.log(Level.INFO, "Trying to register with the BootStrap server with username given by user: "+uname);
-			System.out.println("Registering to the Network in Bootstrapper");
+			//System.out.println("Registering to the Network in Bootstrap Server");
 			unstructuredPeer.Register(uname);
 			
 			logger.log(Level.INFO, "Trying to join with the nodes provided by the BootStrap server.");
 			System.out.println("Sending join messages to the IPs received from Bootstrapper");
 			unstructuredPeer.join();
 			
-			System.out.println("Routing Table:");
-			for (String name: RT.keySet()){
-	            String key =name.toString(); 
-	            System.out.println(key + " : " + RT.get(name));  
-			} 
-			
-			logger.log(Level.INFO, "Trying to leave from BootStrap Server and nodes in the Routing Table.");
-			System.out.println("Sending leave messages to the BootStrap Server and nodes");
-			unstructuredPeer.leave(uname);
-			
-			System.out.println("Routing Table:");
-			for (String name: RT.keySet()){
-	            String key =name.toString(); 
-	            System.out.println(key + " : " + RT.get(name));  
-			} 
+			System.out.println("Routing Table: ");
+			for (String name: RT.keySet()){ 
+	            System.out.println(name + " : " + RT.get(name));  
+			}
+			Scanner sc = new Scanner(System.in);
+			String s = sc.nextLine();
+			String[] S = s.split(" ");
+			switch(S[0]){
+			case "leave":
+				logger.log(Level.INFO, "Trying to leave from BootStrap Server and nodes in the Routing Table.");
+				System.out.println("Sending leave messages to the BootStrap Server and nodes");
+				unstructuredPeer.leave(uname);
+				
+				System.out.println("Routing Table:");
+				for (String name: RT.keySet()){
+		            //String key =name.toString(); 
+		            System.out.println(name + " : " + RT.get(name));  
+				}
+				
+			case "add":
+				//add resource code.
+				
+			case "delete":
+				//delete resource code.
+				
+			case "exit":
+				System.exit(0);
+				
+			default:
+				System.out.println("Usage: \n add <Resource name>: Adds resource to the node. \n"
+						+ "delete <Resource name>: deletes resource from the node. \n"
+						+ "leave: Leaves the network. \n"
+						+ "exit: Exits the program.");
+			}
+			sc.close();
 		}
 		
 		catch (NumberFormatException e) {
@@ -96,23 +121,20 @@ public class unstructuredPeer {
 	
 	public static String msgRT(String Message, String ip, int Port) throws IOException {
 		logger.log(Level.INFO, "Sending the message to Socket address: " + ip + " " + Port);
-		DatagramSocket sock = new DatagramSocket();
-		logger.log(Level.INFO, "Socket has been created.");
 		InetAddress IP = InetAddress.getByName(ip);
 		byte[] send = Message.getBytes();
 		DatagramPacket sndpkt = new DatagramPacket(send, send.length, IP, Port);
+		System.out.println("--------" +Message+ "-------"+ ip+":"+Integer.toString(Port));
 		sock.send(sndpkt);
 		byte[] rcv = new byte[1023];
 		DatagramPacket rcvpkt = new DatagramPacket(rcv, rcv.length);
 		sock.receive(rcvpkt);
 		String reply = new String(rcvpkt.getData(),0,rcvpkt.getLength());
 		System.out.println(reply);
-		sock.close();
-		logger.log(Level.INFO, "Socket has been closed.");
 		return reply;
 	}
 	
-	public static void Register( String uname) throws IOException {
+	public static void Register(String uname) throws IOException {
 		String msg1 = " REG "+ N_ip + " " + Integer.toString(N_port) + " " + uname;
 		int len = msg1.length() + 4;
 		String msg = String.format("%04d", len) + msg1;
@@ -176,21 +198,29 @@ public class unstructuredPeer {
 	public static void join()  {
 		while(true) {
 			try {
+				System.out.println("Join method. 1");
 				String JoinMsg = " JOIN " + N_ip + " " + Integer.toString(N_port);
 				int len = JoinMsg.length() + 4;
 				JoinMsg = String.format("%04d", len) + JoinMsg;
+				System.out.println("Join method. 2");
 				for (String num: RT.keySet()) {
+					System.out.println("Join method. 3");
 					String reply = msgRT(JoinMsg, num, Integer.parseInt(RT.get(num)));
+					System.out.println("Join method. 4");
 					String[] node_reply = reply.split(" ");
 					if (node_reply[2] != "0") {
 						RT.remove(num);
 						logger.log(Level.INFO, num + " has been removed from the routing table as the JOIN message failed.");
+					}
+					else if (node_reply[2] == "0") {
+						System.out.println(num + " has been added to the routing table as the JOIN message succeeded.");
 					}
 					if (node_reply[2] == "9999") {
 						System.out.println("Node " + num + " did not added my IP in it's Routing Table!");
 						logger.log(Level.INFO, "Node " + num + " did not added my IP in it's Routing Table!");
 					}
 				}
+				System.out.println("Join method. 5");
 				break;
 				
 			} catch (NumberFormatException e) {

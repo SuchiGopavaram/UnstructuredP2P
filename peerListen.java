@@ -7,24 +7,91 @@ import java.net.InetAddress;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.logging.FileHandler;
 import java.util.logging.Level;
 
+
 public class peerListen extends Thread{
-	public static DatagramSocket Sock;
+	
 	public static Logger logger = Logger.getLogger("ListenLog");
 	public static FileHandler log_file;
+	public static DatagramSocket Sock;
+	public static ConcurrentMap<String, String> RT = new ConcurrentHashMap<String, String>();
 	
 	public peerListen() {
 		
 	}
 	
+	public static String rcv() {
+		System.out.println("waiting for message");
+		byte[] rcv = new byte[1023];
+		DatagramPacket rcvpkt = new DatagramPacket(rcv, rcv.length);
+		
+		for (int i = 0; i < 3; i++) {
+			try {
+				Sock.receive(rcvpkt);
+				System.out.println("Packet received.");
+				logger.log(Level.INFO, "Packet received.");
+				break;
+			} catch (IOException e) {
+				System.err.println("Encountered IO exception. Got invalid IP address. Trying again. " 
+						+Integer.toString(3-(i+1))+" times remaining.");
+				logger.log(Level.WARNING, "IOException while receiveing packet");
+			}
+		}
+		
+		String reply = new String(rcvpkt.getData(),0,rcvpkt.getLength());
+		System.out.println(reply);
+		return reply;
+	}
+	
+	public static void send(String Message, String ip, int Port) {
+		System.out.println("Sending message");
+		InetAddress IP;
+		for (int i = 0; i < 3; i++) {
+			try {
+				IP = InetAddress.getByName(ip);
+				byte[] send = Message.getBytes();
+				DatagramPacket sndpkt = new DatagramPacket(send, send.length, IP, Port);
+				Sock.send(sndpkt);
+				logger.log(Level.INFO, "Packet sent.");
+				break;
+			} catch (UnknownHostException e) {
+				System.err.println("Error occurred while getting self IP. Trying again. "
+							+Integer.toString(3-(i+1))+" times remaining.");
+				logger.log(Level.WARNING, "UnknownHostException while getting self IP");
+			} catch (IOException e) {
+				System.err.println("Encountered IO exception. Got invalid IP address. Trying again. "
+							+ Integer.toString(3-(i+1))+" times remaining.");
+				logger.log(Level.WARNING, "IOException while receiveing packet");
+			}
+		}
+		logger.log(Level.INFO, "Socket has been closed.");
+	}
+	
 	public void run() {
+		System.out.println("Entered listening.");
+		try {
+			Sock = new DatagramSocket(unstructuredPeer.N_port);
+			log_file = new FileHandler("Listen.Log");
+		} catch (SecurityException e2) {
+			System.out.println("file handler SecurityException");
+			
+		} catch (IOException e2) {
+			System.out.println("File handler IOException");
+		}
+		SimpleFormatter formatter = new SimpleFormatter();
+	    log_file.setFormatter(formatter);
+		logger.setUseParentHandlers(false);
 		while(true) {
 			while(true) {
 				try {
-					log_file = new FileHandler("Listen.Log");
+					System.out.println("Entered listening.1");
 					String rcvReq = rcv();
+					System.out.println("Entered listening.2");
 					String[] msg = rcvReq.split(" ");
 					if (Integer.parseInt(msg[0]) != rcvReq.length()) {
 						System.out.println("corrupted message received. Going to listening mode.");
@@ -78,83 +145,11 @@ public class peerListen extends Thread{
 					System.err.println("SecurityException occurred.");
 					logger.log(Level.WARNING, "SecurityException occurred.");
 					break;
-				} catch (IOException e) {
-					System.err.println("IOException occured.");
-					logger.log(Level.WARNING, "IOException occured.");
-					break;
 				}
 				
 			}
+			
+			log_file.close();
 		}
 	}
-	
-	public static String rcv() {
-		
-		for (int i = 0; i < 3; i++) {
-			try {
-				Sock = new DatagramSocket();
-			} catch (SocketException e1) {
-				System.err.println("Error occurred while creating socket. Trying again. "
-						+Integer.toString(3-(i+1))+" times remaining.");
-				logger.log(Level.WARNING, "Error creating socket. Trying again.");
-			}
-		}
-		
-		logger.log(Level.INFO, "Socket has been created.");
-		byte[] rcv = new byte[1023];
-		DatagramPacket rcvpkt = new DatagramPacket(rcv, rcv.length);
-		
-		for (int i = 0; i < 3; i++) {
-			try {
-				Sock.receive(rcvpkt);
-				logger.log(Level.INFO, "Packet received.");
-			} catch (IOException e) {
-				System.err.println("Encountered IO exception. Got invalid IP address. Trying again. " 
-						+Integer.toString(3-(i+1))+" times remaining.");
-				logger.log(Level.WARNING, "IOException while receiveing packet");
-			}
-		}
-		
-		String reply = new String(rcvpkt.getData(),0,rcvpkt.getLength());
-		System.out.println(reply);
-		Sock.close();
-		logger.log(Level.INFO, "Socket has been closed.");
-		return reply;
-	}
-	
-	public static void send(String Message, String ip, int Port) {
-		for (int i = 0; i < 3; i++) {
-			try {
-				Sock = new DatagramSocket();
-			} catch (SocketException e) {
-				System.err.println("Error occurred while creating socket. Trying again. "
-						+Integer.toString(3-(i+1))+" times remaining.");
-				logger.log(Level.WARNING, "Error creating socket. Trying again.");
-			}
-		}
-		
-		logger.log(Level.INFO, "Socket has been created.");
-		InetAddress IP;
-		for (int i = 0; i < 3; i++) {
-			try {
-				IP = InetAddress.getByName(ip);
-				byte[] send = Message.getBytes();
-				DatagramPacket sndpkt = new DatagramPacket(send, send.length, IP, Port);
-				Sock.send(sndpkt);
-				logger.log(Level.INFO, "Packet sent.");
-			} catch (UnknownHostException e) {
-				System.err.println("Error occurred while getting self IP. Trying again. "
-							+Integer.toString(3-(i+1))+" times remaining.");
-				logger.log(Level.WARNING, "UnknownHostException while getting self IP");
-			} catch (IOException e) {
-				System.err.println("Encountered IO exception. Got invalid IP address. Trying again. "
-							+ Integer.toString(3-(i+1))+" times remaining.");
-				logger.log(Level.WARNING, "IOException while receiveing packet");
-			}
-		}	
-		Sock.close();
-		logger.log(Level.INFO, "Socket has been closed.");
-	}
-	
-	
 }
