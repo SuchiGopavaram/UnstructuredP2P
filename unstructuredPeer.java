@@ -48,16 +48,14 @@ public class unstructuredPeer {
 			sock = peerListen.Sock;
 			logger.log(Level.INFO, "Socket has been created.");
 			
-			System.out.println("Enter the Username that you want this node to connect to:");
 			String uname = "Nodes20";
-			System.out.println("Using username: "+uname);
 			
 			logger.log(Level.INFO, "Trying to register with the BootStrap server with username given by user: "+uname);
 			//System.out.println("Registering to the Network in Bootstrap Server");
 			unstructuredPeer.Register(uname);
 			
+			System.out.println("Sending join messages to the IP's received from Bootstrapper");
 			logger.log(Level.INFO, "Trying to join with the nodes provided by the BootStrap server.");
-			System.out.println("Sending join messages to the IPs received from Bootstrapper");
 			unstructuredPeer.join();
 			
 			System.out.println("Routing Table: ");
@@ -121,9 +119,10 @@ public class unstructuredPeer {
 	public static String msgRT(String Message, String ip, int Port) throws IOException {
 		logger.log(Level.INFO, "Sending the message to Socket address: " + ip + " " + Port);
 		InetAddress IP = InetAddress.getByName(ip);
+		System.out.println("Message in msgRT: " + Message);
 		byte[] send = Message.getBytes();
 		DatagramPacket sndpkt = new DatagramPacket(send, send.length, IP, Port);
-		System.out.println("--------" +Message+ "-------"+ ip+":"+Integer.toString(Port));
+		System.out.println("--------" + Message + "-------"+ ip + " : " + Integer.toString(Port));
 		sock.send(sndpkt);
 		byte[] rcv = new byte[1023];
 		DatagramPacket rcvpkt = new DatagramPacket(rcv, rcv.length);
@@ -204,6 +203,7 @@ public class unstructuredPeer {
 				System.out.println("Join method. 2");
 				for (String num: RT.keySet()) {
 					System.out.println("Join method. 3");
+					System.out.println("Join message" + JoinMsg);
 					String reply = msgRT(JoinMsg, num, Integer.parseInt(RT.get(num)));
 					System.out.println("Join method. 4");
 					String[] node_reply = reply.split(" ");

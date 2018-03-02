@@ -26,7 +26,7 @@ public class peerListen extends Thread{
 	}
 	
 	public static String rcv() {
-		System.out.println("waiting for message");
+		//System.out.println("waiting for message");
 		byte[] rcv = new byte[1023];
 		DatagramPacket rcvpkt = new DatagramPacket(rcv, rcv.length);
 		
@@ -73,7 +73,7 @@ public class peerListen extends Thread{
 	}
 	
 	public void run() {
-		System.out.println("Entered listening.");
+		//System.out.println("Entered listening.");
 		try {
 			Sock = new DatagramSocket(unstructuredPeer.N_port);
 			log_file = new FileHandler("Listen.Log");
@@ -89,9 +89,10 @@ public class peerListen extends Thread{
 		while(true) {
 			while(true) {
 				try {
-					System.out.println("Entered listening.1");
+					//System.out.println("Entered listening.1");
 					String rcvReq = rcv();
-					System.out.println("Entered listening.2");
+					//System.out.println("Entered listening.2");
+					System.out.println("rcvReq: " + rcvReq);
 					String[] msg = rcvReq.split(" ");
 					if (Integer.parseInt(msg[0]) != rcvReq.length()) {
 						System.out.println("corrupted message received. Going to listening mode.");
