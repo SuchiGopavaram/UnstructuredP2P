@@ -94,7 +94,7 @@ public class peerListen extends Thread{
 					//System.out.println("Entered listening.2");
 					System.out.println("rcvReq: " + rcvReq);
 					String[] msg = rcvReq.split(" ");
-					if (Integer.parseInt(msg[0]) != rcvReq.length()) {
+					if (Integer.parseInt(msg[0]) != rcvReq.length()-5) {
 						System.out.println("corrupted message received. Going to listening mode.");
 						logger.log(Level.WARNING, "corrupted message received. Going to listening mode.");
 						break;
@@ -107,11 +107,11 @@ public class peerListen extends Thread{
 						logger.log(Level.INFO, "Received Join message.");
 						unstructuredPeer.RT.put(IP,msg[3]);
 						if(unstructuredPeer.RT.get(IP) == msg[3]) {
-							send_msg = "0013 JOINOK 0";
+							send_msg = "0008 JOINOK 0";
 							logger.log(Level.INFO, "Added node to Routing Table.");
 						}
 						else {
-							send_msg = "0016 JOINOK 9999";
+							send_msg = "0011 JOINOK 9999";
 							logger.log(Level.INFO, "Adding note to Routing table failed.");
 						}
 						send(send_msg,IP,Port);
@@ -120,11 +120,11 @@ public class peerListen extends Thread{
 						logger.log(Level.INFO, "Received LEAVE message.");
 						unstructuredPeer.RT.remove(IP, msg[3]);
 						if(unstructuredPeer.RT.get(IP)==msg[3]) {
-							send_msg = "0014 LEAVEOK 0";
+							send_msg = "0009 LEAVEOK 0";
 							logger.log(Level.INFO, "LEAVE successful.");
 						}
 						else {
-							send_msg = "0017 LEAVEOK 9999";
+							send_msg = "0012 LEAVEOK 9999";
 							logger.log(Level.INFO, "LEAVE failed.");
 						}
 						send(send_msg,IP,Port);

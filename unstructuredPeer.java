@@ -133,9 +133,9 @@ public class unstructuredPeer {
 	}
 	
 	public static void Register(String uname) throws IOException {
-		String msg1 = " REG "+ N_ip + " " + Integer.toString(N_port) + " " + uname;
-		int len = msg1.length() + 4;
-		String msg = String.format("%04d", len) + msg1;
+		String msg1 = "REG "+ N_ip + " " + Integer.toString(N_port) + " " + uname;
+		int len = msg1.length();
+		String msg = String.format("%04d", len) + " " + msg1;
 		String reply =  msgRT(msg,BS_ip,BS_port);
 		String[] rep = reply.split(" ");
 		if (rep[1].equals("REGOK")) {
@@ -197,9 +197,9 @@ public class unstructuredPeer {
 		while(true) {
 			try {
 				System.out.println("Join method. 1");
-				String JoinMsg = " JOIN " + N_ip + " " + Integer.toString(N_port);
-				int len = JoinMsg.length() + 4;
-				JoinMsg = String.format("%04d", len) + JoinMsg;
+				String JoinMsg = "JOIN " + N_ip + " " + Integer.toString(N_port);
+				int len = JoinMsg.length();
+				JoinMsg = String.format("%04d", len) + " " + JoinMsg;
 				System.out.println("Join method. 2");
 				for (String num: RT.keySet()) {
 					System.out.println("Join method. 3");
@@ -236,8 +236,8 @@ public class unstructuredPeer {
 		while (true) {	
 			try {
 				String LeaveMsg = " DEL IPADDRESS " + N_ip + " " + Integer.toString(N_port) + " "+ uname;
-				int len = LeaveMsg.length() + 4;
-				LeaveMsg = String.format("%04d",  len) + LeaveMsg;
+				int len = LeaveMsg.length();
+				LeaveMsg = String.format("%04d",  len) + " " + LeaveMsg;
 				
 				for(int i = 0; i < 3; i++) {
 					String reply = msgRT(LeaveMsg, BS_ip, BS_port);
