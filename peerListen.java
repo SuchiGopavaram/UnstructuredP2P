@@ -1,11 +1,8 @@
 package UnstructuredP2P;
-
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
-import java.net.SocketException;
-import java.net.UnknownHostException;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
 import java.util.concurrent.ConcurrentHashMap;
@@ -13,22 +10,23 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.logging.FileHandler;
 import java.util.logging.Level;
 
-
 public class peerListen extends Thread{
 	
-	public static Logger logger = Logger.getLogger("ListenLog");
-	public static FileHandler log_file;
-	public static DatagramSocket Sock;
-	public static ConcurrentMap<String, String> RT = new ConcurrentHashMap<String, String>();
+	public Logger logger = Logger.getLogger("ListenLog");
+	public FileHandler log_file;
+	public DatagramSocket Sock;
+	public ConcurrentMap<String, String> RTObj;
+	public int N_port;
 	
-	public peerListen() {
-		
+	public peerListen(int N_Port,ConcurrentHashMap<String, String> table) {
+		N_port = N_Port;
+		RTObj = table;
 	}
 	
-	public static String rcv() {
+	public String[] rcv() {
 		System.out.println("waiting for message");
-		byte[] rcv = new byte[1023];
-		DatagramPacket rcvpkt = new DatagramPacket(rcv, rcv.length);
+		byte[] rcve = new byte[1023];
+		DatagramPacket rcvpkt = new DatagramPacket(rcve, rcve.length);
 		
 		for (int i = 0; i < 3; i++) {
 			try {
@@ -43,69 +41,75 @@ public class peerListen extends Thread{
 			}
 		}
 		
-		String reply = new String(rcvpkt.getData(),0,rcvpkt.getLength());
+		String reply[] = {new String(rcvpkt.getData(),0,rcvpkt.getLength()),
+				rcvpkt.getAddress().toString().substring(1, rcvpkt.getAddress().toString().length()),
+					Integer.toString(rcvpkt.getPort())};
+		
 		System.out.println(reply);
 		return reply;
 	}
 	
-	public static void send(String Message, String ip, int Port) {
+	public void send(String Message, String ip, int port) {
 		System.out.println("Sending message");
 		InetAddress IP;
 		for (int i = 0; i < 3; i++) {
 			try {
 				IP = InetAddress.getByName(ip);
 				byte[] send = Message.getBytes();
-				DatagramPacket sndpkt = new DatagramPacket(send, send.length, IP, Port);
+				DatagramPacket sndpkt = new DatagramPacket(send, send.length, IP, port);
 				Sock.send(sndpkt);
+				System.out.println("Packet Sent.");
 				logger.log(Level.INFO, "Packet sent.");
 				break;
-			} catch (UnknownHostException e) {
-				System.err.println("Error occurred while getting self IP. Trying again. "
-							+Integer.toString(3-(i+1))+" times remaining.");
-				logger.log(Level.WARNING, "UnknownHostException while getting self IP");
 			} catch (IOException e) {
+				System.err.println(e);
 				System.err.println("Encountered IO exception. Got invalid IP address. Trying again. "
 							+ Integer.toString(3-(i+1))+" times remaining.");
 				logger.log(Level.WARNING, "IOException while receiveing packet");
 			}
 		}
-		logger.log(Level.INFO, "Socket has been closed.");
 	}
 	
 	public void run() {
 		System.out.println("Entered listening.");
+		
 		try {
-			Sock = new DatagramSocket(unstructuredPeer.N_port);
+			Sock = new DatagramSocket(N_port);
+			
 			log_file = new FileHandler("Listen.Log");
+			SimpleFormatter formatter = new SimpleFormatter();
+		    log_file.setFormatter(formatter);
+			logger.addHandler(log_file);
+			logger.setUseParentHandlers(false);
 		} catch (SecurityException e2) {
-			System.out.println("file handler SecurityException");
+			System.err.println("file handler SecurityException");
 			
 		} catch (IOException e2) {
-			System.out.println("File handler IOException");
+			System.err.println(e2);
+			System.err.println("IOException. Socket Error");
+			
 		}
-		SimpleFormatter formatter = new SimpleFormatter();
-	    log_file.setFormatter(formatter);
-		logger.setUseParentHandlers(false);
+		
 		while(true) {
 			while(true) {
 				try {
-					System.out.println("Entered listening.1");
-					String rcvReq = rcv();
-					System.out.println("Entered listening.2");
-					String[] msg = rcvReq.split(" ");
-					if (Integer.parseInt(msg[0]) != rcvReq.length()-5) {
+					String[] rcvReq = rcv();
+					String[] msg = rcvReq[0].split(" ");
+					if (Integer.parseInt(msg[0]) != rcvReq[0].length()-5) {
 						System.out.println("corrupted message received. Going to listening mode.");
 						logger.log(Level.WARNING, "corrupted message received. Going to listening mode.");
 						break;
 					}
+					
 					String IP = msg[2];
-					int Port = Integer.parseInt(msg[3]);
 					String send_msg;
+					
 					switch (msg[1]) {
+					
 					case "JOIN":
 						logger.log(Level.INFO, "Received Join message.");
-						unstructuredPeer.RT.put(IP,msg[3]);
-						if(unstructuredPeer.RT.get(IP) == msg[3]) {
+						RTObj.put(IP,msg[3]);
+						if(RTObj.get(IP) == msg[3]) {
 							send_msg = "0008 JOINOK 0";
 							logger.log(Level.INFO, "Added node to Routing Table.");
 						}
@@ -113,12 +117,13 @@ public class peerListen extends Thread{
 							send_msg = "0011 JOINOK 9999";
 							logger.log(Level.INFO, "Adding note to Routing table failed.");
 						}
-						send(send_msg,IP,Port);
+						send(send_msg,rcvReq[1],Integer.parseInt(rcvReq[2]));
 						break;
+						
 					case "LEAVE":
 						logger.log(Level.INFO, "Received LEAVE message.");
-						unstructuredPeer.RT.remove(IP, msg[3]);
-						if(unstructuredPeer.RT.get(IP)==msg[3]) {
+						RTObj.remove(IP, msg[3]);
+						if(!RTObj.containsKey(IP)) {
 							send_msg = "0009 LEAVEOK 0";
 							logger.log(Level.INFO, "LEAVE successful.");
 						}
@@ -126,14 +131,16 @@ public class peerListen extends Thread{
 							send_msg = "0012 LEAVEOK 9999";
 							logger.log(Level.INFO, "LEAVE failed.");
 						}
-						send(send_msg,IP,Port);
+						send(send_msg,rcvReq[1],Integer.parseInt(rcvReq[2]));
 						break;
+						
 					case "QUERY":
-						logger.log(Level.INFO, "Socket has been created.");
 						//Query code
 						break;
+						
 					default:
 						break;
+						
 					}
 					break;
 				} 
@@ -145,10 +152,8 @@ public class peerListen extends Thread{
 					System.err.println("SecurityException occurred.");
 					logger.log(Level.WARNING, "SecurityException occurred.");
 					break;
-				}
-				
+				}	
 			}
-			
 			log_file.close();
 		}
 	}
