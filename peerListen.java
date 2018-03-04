@@ -103,13 +103,14 @@ public class peerListen extends Thread{
 					
 					String IP = msg[2];
 					String send_msg;
+					String SockAdd = IP+" "+msg[3];
 					
 					switch (msg[1]) {
 					
 					case "JOIN":
 						logger.log(Level.INFO, "Received Join message.");
-						RTObj.put(IP,msg[3]);
-						if(RTObj.get(IP) == msg[3]) {
+						RTObj.put(SockAdd,"");
+						if(RTObj.containsKey(SockAdd)) {
 							send_msg = "0008 JOINOK 0";
 							logger.log(Level.INFO, "Added node to Routing Table.");
 						}
@@ -122,8 +123,8 @@ public class peerListen extends Thread{
 						
 					case "LEAVE":
 						logger.log(Level.INFO, "Received LEAVE message.");
-						RTObj.remove(IP, msg[3]);
-						if(!RTObj.containsKey(IP)) {
+						RTObj.remove(SockAdd);
+						if(!RTObj.containsKey(SockAdd)) {
 							send_msg = "0009 LEAVEOK 0";
 							logger.log(Level.INFO, "LEAVE successful.");
 						}

@@ -24,7 +24,7 @@ public class unstructuredPeer {
 		try {
 			FileHandler log_file = new FileHandler("Node.Log");
 			SimpleFormatter formatter = new SimpleFormatter();
-		    log_file.setFormatter(formatter);
+			log_file.setFormatter(formatter);
 			logger.addHandler(log_file);
 			logger.setUseParentHandlers(false);
 			
@@ -42,7 +42,9 @@ public class unstructuredPeer {
 				System.exit(1);
 			}
 			
-			new Thread(new peerListen(N_port,RT)).start();
+			
+			peerListen lis = new peerListen(N_port,RT);
+			new Thread(lis).start();
 			logger.log(Level.INFO,"Listen thread strated");
 			
 			sock = new DatagramSocket();
@@ -62,39 +64,54 @@ public class unstructuredPeer {
 			
 			System.out.println("Routing Table: ");
 			for (String name: RT.keySet()){ 
-	            System.out.println(name + " : " + RT.get(name));  
+	            System.out.println(name);  
 			}
 			Scanner sc = new Scanner(System.in);
-			String s = sc.nextLine();
-			String[] S = s.split(" ");
-			switch(S[0]){
-			case "leave":
-				logger.log(Level.INFO, "Trying to leave from BootStrap Server and nodes in the Routing Table.");
-				System.out.println("Sending leave messages to the BootStrap Server and nodes");
-				unstructuredPeer.leave(uname);
-				
-				System.out.println("Routing Table:");
-				for (String name: RT.keySet()){ 
-		            System.out.println(name + " : " + RT.get(name));  
+			while(true) {
+				String s = sc.nextLine();
+				String[] S = s.split(" ");
+				switch(S[0]){
+				case "leave":
+					logger.log(Level.INFO, "Trying to leave from BootStrap Server and nodes in the Routing Table.");
+					System.out.println("Sending leave messages to the BootStrap Server and nodes");
+					unstructuredPeer.leave(uname);
+					RT.clear();
+					
+					System.out.println("Routing Table:");
+					for (String name: RT.keySet()){ 
+			            System.out.println(name);  
+					}
+					
+				case "add":
+					//add resource code.
+					break;
+					
+				case "delete":
+					//delete resource code.
+					break;
+					
+				case "print" :
+					System.out.println("Routing Table: ");
+					for (String name: RT.keySet()){ 
+			            System.out.println(name);  
+					}
+					break;
+					
+				case "exit":
+					log_file.close();
+					lis.log_file.close();
+					sc.close();
+					System.exit(0);
+					
+				default:
+					System.out.println("Usage: \n add <Resource name>: Adds resource to the node.\n"
+							+ "delete <Resource name>: deletes resource from the node.\n"
+							+ "leave: Leaves the network.\n"
+							+ "print: Prints routing table.\n"
+							+ "exit: Exits the program.");
+					break;
 				}
-				
-			case "add":
-				//add resource code.
-				
-			case "delete":
-				//delete resource code.
-				
-			case "exit":
-				System.exit(0);
-				
-			default:
-				System.out.println("Usage: \n add <Resource name>: Adds resource to the node. \n"
-						+ "delete <Resource name>: deletes resource from the node. \n"
-						+ "leave: Leaves the network. \n"
-						+ "exit: Exits the program.");
 			}
-			sc.close();
-			log_file.close();
 		}
 		
 		catch (NumberFormatException e) {
@@ -162,20 +179,20 @@ public class unstructuredPeer {
 				else if (rep[3].equals("1")){
 					System.out.println("Node Registered Successfully.");
 					logger.log(Level.INFO, "Node Registered Successfully.");
-					RT.put(rep[4], rep[5]);
+					RT.put(rep[4] + " " + rep[5], "");
 				}
 				else if (rep[3].equals("2")){
 					System.out.println("Node Registered Successfully.");
 					logger.log(Level.INFO, "Node Registered Successfully.");
-					RT.put(rep[4], rep[5]);
-					RT.put(rep[6], rep[7]);
+					RT.put(rep[4] + " " + rep[5], "");
+					RT.put(rep[6] + " " + rep[7], "");
 				}
 				else if (rep[3].equals("3")){
 					System.out.println("Node Registered Successfully.");
 					logger.log(Level.INFO, "Node Registered Successfully.");
-					RT.put(rep[4], rep[5]);
-					RT.put(rep[6], rep[7]);
-					RT.put(rep[8], rep[9]);
+					RT.put(rep[4] + " " + rep[5], "");
+					RT.put(rep[6] + " " + rep[7], "");
+					RT.put(rep[8] + " " + rep[9], "");
 				}
 				else {
 					System.out.println("Received unknown message.");
@@ -201,8 +218,10 @@ public class unstructuredPeer {
 			JoinMsg = String.format("%04d", len) + " " + JoinMsg;
 			System.out.println("Join method. 2");
 			for (String num: RT.keySet()) {
+				String[] sockAdd = num.split(" ");
+				System.out.println(sockAdd[0]+":"+sockAdd[1]);
 				System.out.println("Join method. 3");
-				String reply = msgRT(JoinMsg, num, Integer.parseInt(RT.get(num)));
+				String reply = msgRT(JoinMsg, sockAdd[0], Integer.parseInt(sockAdd[1]));
 				System.out.println("Join method. 4");
 				String[] node_reply = reply.split(" ");
 				if (node_reply[1] == "JOINOK"){
@@ -222,6 +241,7 @@ public class unstructuredPeer {
 			System.out.println("Join method. 5");
 			
 		} catch (NumberFormatException e) {
+			System.err.println(e);
 			System.err.println("Routing table contains non-numeric characters in the port field.");
 			logger.log(Level.WARNING, "Routing table contains non-numeric characters in the port field.");
 		}
@@ -273,8 +293,9 @@ public class unstructuredPeer {
 				LeaveMsg = String.format("%04d", leaveLen) + " " + LeaveMsg;
 				
 				for (String num: RT.keySet()) {
+					String[] sockAdd = num.split(" ");
 					for(int i = 0; i < 3; i++) {
-						String reply = msgRT(LeaveMsg, num, Integer.parseInt(RT.get(num)));
+						String reply = msgRT(LeaveMsg, sockAdd[0], Integer.parseInt(sockAdd[1]));
 						String[] node_reply = reply.split(" ");
 						if (node_reply[2] != "0") {
 							System.out.println("Left from " + num + " node Successfully");
