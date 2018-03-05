@@ -94,11 +94,13 @@ public class unstructuredPeer {
 					System.out.println("Sending leave messages to the BootStrap Server and nodes");
 					unstructuredPeer.leave(uname);
 					RT.clear();
+					logger.log(Level.INFO, "Left from BootStrap Server and nodes in the Routing Table.");
 					
 					System.out.println("Routing Table:");
 					for (String name: RT.keySet()){ 
 			            System.out.println(name);  
 					}
+					break;
 					
 				case "distribute":
 					fileDist(Integer.parseInt(S[1]));
@@ -166,7 +168,7 @@ public class unstructuredPeer {
 							+ "delete <Resource name>: deletes resource from the node.\n"
 							+ "leave: Leaves the network.\n"
 							+ "print: Prints routing table.\n"
-							+ "distribute: Distributes the resources.txt contents to all the nodes in the network. \n"
+							+ "distribute <number of resources per node>: Distributes the resources.txt contents to all the nodes in the network. \n"
 							+ "Query: "
 							+ "exit: Exits the program."
 							//add the added features here
@@ -189,6 +191,7 @@ public class unstructuredPeer {
 			System.exit(1);
 		}
 		catch (ArrayIndexOutOfBoundsException e) {
+			System.err.println(e);
 			System.err.println("Check the number of arguments given. "
 					+ "\n Command Usage: java Unstructuredpeer REG <Node_Port> <BootStrap_IP> <BootStrap_Port> <UserName>");
 			logger.log(Level.WARNING, "Check the number of arguments given." 
