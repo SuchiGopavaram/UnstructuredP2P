@@ -445,9 +445,9 @@ public class unstructuredPeer {
 					{
 						sbuffer.append(s+"\n");
 					}
-					int resoucesLength = sbuffer.length();
+					int resourcesLength = sbuffer.length();
 					if ((pList[0] != N_ip) && (Integer.parseInt(pList[1]) != N_port)) {
-						send(String.format("%04d", resoucesLength) + " " + sbuffer.toString(), pList[0], Integer.parseInt(pList[1]));
+						send(String.format("%04d", resourcesLength) + " " + sbuffer.toString(), pList[0], Integer.parseInt(pList[1]));
 					}
 					else N_resources = subArr;
 					
