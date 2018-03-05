@@ -435,7 +435,7 @@ public class unstructuredPeer {
 			System.out.println(N_resources);*/
 			int i = 0 ;
 			for (String sockAddress : peerList) {
-				String[] pList = sockAddress.split(" ");
+				String[] pList = sockAddress.split(":");
 				
 				while ( i < resources.length) {
 					List<String> subArr = Arrays.asList(resources).subList(i, i + numOfRes);
@@ -459,7 +459,7 @@ public class unstructuredPeer {
 		} catch (IOException e) {
 			System.err.println("Error: IOException Occured.");
 		} catch (ArrayIndexOutOfBoundsException e) {
-			System.err.println(e);
+			e.printStackTrace();
 		}
 	}
 	
