@@ -5,6 +5,11 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
+
+import org.omg.CORBA.INTERNAL;
+
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.logging.FileHandler;
@@ -12,15 +17,22 @@ import java.util.logging.Level;
 
 public class peerListen extends Thread{
 	
-	public Logger logger = Logger.getLogger("ListenLog");
+	public static Logger logger = Logger.getLogger("ListenLog");
 	public FileHandler log_file;
-	public DatagramSocket Sock;
+	public static DatagramSocket Sock;
 	public ConcurrentMap<String, String> RTObj;
 	public int N_port;
+	public String N_ip;
+	public List<String> N_resources = new ArrayList<String>();
 	
-	public peerListen(int N_Port,ConcurrentHashMap<String, String> table) {
+	public peerListen(int N_Port, String N_IP, ConcurrentHashMap<String, String> table) {
 		N_port = N_Port;
+		N_ip = N_IP;
 		RTObj = table;
+	}
+	
+	public void sendResources(List<String> res) {
+		N_resources = res;
 	}
 	
 	public String[] rcv() {
@@ -87,7 +99,6 @@ public class peerListen extends Thread{
 		} catch (IOException e2) {
 			System.err.println(e2);
 			System.err.println("IOException. Socket Error");
-			
 		}
 		
 		while(true) {
@@ -103,8 +114,8 @@ public class peerListen extends Thread{
 					}
 					
 					String IP = msg[2];
-					String send_msg;
 					String SockAdd = IP+" "+msg[3];
+					String send_msg = "";
 					
 					switch (msg[1]) {
 					
@@ -136,8 +147,36 @@ public class peerListen extends Thread{
 						send(send_msg,rcvReq[1],Integer.parseInt(rcvReq[2]));
 						break;
 						
-					case "QUERY":
+					case "SER":
 						//Query code
+						int noFiles = 0;
+						String Files = " ";
+						for(String file :N_resources) {
+							if (file.contains(msg[4])) {
+								Files = Files + " " + file;
+								noFiles++;
+							}
+						}
+						if (noFiles > 0) {
+							System.out.println("Match(es) for the queried file found in the node.");
+							logger.log(Level.INFO,"Match(es) for the queried file found in the node.");
+							send_msg = "SEROK " + noFiles + N_ip + " " + N_port + Files;
+							send_msg = String.format("%04d",send_msg.length()) + " " + send_msg;
+							send(send_msg, IP, Integer.parseInt(msg[3]));
+						}
+						else {
+							for (int i = 1; i < msg.length-1;i++) {
+								send_msg = send_msg + msg[i];
+							}
+							send_msg = send_msg + Integer.toString(Integer.parseInt(msg[msg.length]) - 1);
+							for (String key: RTObj.keySet()) {
+								String[] keyArr = key.split(" " );
+								if ((keyArr[0] != rcvReq[1]) && keyArr[1] != rcvReq[2]) {
+									send(send_msg, keyArr[0], Integer.parseInt(keyArr[1]));
+								}			
+							}
+						}
+						
 						break;
 						
 					default:

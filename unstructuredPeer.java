@@ -1,12 +1,24 @@
 package UnstructuredP2P;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Scanner;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
+
+import org.apache.commons.math3.distribution.ZipfDistribution;
+
 import java.util.logging.FileHandler;
 import java.util.logging.Level;
 
@@ -19,6 +31,11 @@ public class unstructuredPeer {
 	public static Logger logger = Logger.getLogger("NodeLog");
 	public static DatagramSocket sock;
 	public static ConcurrentHashMap<String, String> RT = new ConcurrentHashMap<String, String>();
+	public static String[] resources;
+	public static String uname = "Nodes20";
+	public static List<String> N_resources = new ArrayList<String>();
+	public static peerListen lis;
+	public static int hops = 20;
 	
 	public static void main(String[] args) {
 		try {
@@ -43,14 +60,12 @@ public class unstructuredPeer {
 			}
 			
 			
-			peerListen lis = new peerListen(N_port,RT);
+			lis = new peerListen(N_port, N_ip, RT);
 			new Thread(lis).start();
 			logger.log(Level.INFO,"Listen thread strated");
 			
 			sock = new DatagramSocket();
 			logger.log(Level.INFO, "Socket has been created.");
-			
-			String uname = "Nodes20";
 			
 			logger.log(Level.INFO, "Trying to register with the BootStrap server with username given by user: "+uname);
 			//System.out.println("Registering to the Network in Bootstrap Server");
@@ -64,10 +79,15 @@ public class unstructuredPeer {
 			for (String name: RT.keySet()){ 
 	            System.out.println(name);  
 			}
+			
 			Scanner sc = new Scanner(System.in);
 			while(true) {
 				String s = sc.nextLine();
 				String[] S = s.split(" ");
+				String fileName = "";
+				for (int i = 1; i < S.length; i++) {
+					fileName = fileName + S[i];
+				}
 				switch(S[0]){
 				case "leave":
 					logger.log(Level.INFO, "Trying to leave from BootStrap Server and nodes in the Routing Table.");
@@ -80,12 +100,52 @@ public class unstructuredPeer {
 			            System.out.println(name);  
 					}
 					
+				case "distribute":
+					fileDist(Integer.parseInt(S[1]));
+					lis.sendResources(N_resources);
+					break;
+					
+				case "Query":
+					//External query code.
+					int noFiles = 0;
+					String Files = "";
+					for(String file : N_resources) {
+						if (file.contains(S[1])) {
+							Files = Files + file + "\n";
+							noFiles++;
+						}
+					} 
+					if (noFiles>0) {
+						System.out.println("The queried file is already in this node.");
+						logger.log(Level.INFO,"The queried file is already in this node.");
+					}
+					else {
+						String query = "SER" + N_ip + " " + N_port + " " + S[1] + " " + hops;
+						String queryMsg = String.format("%04d", query.length()) + " " + query;
+						for (String Add : RT.keySet()) {
+							String[] sockAdd = Add.split(" ");
+							send(queryMsg, sockAdd[0], Integer.parseInt(sockAdd[1]));
+						}
+					}
+					break;
+					
 				case "add":
-					//add resource code.
+					if (!N_resources.contains(fileName)) {
+						N_resources.add(fileName);
+					}
+					else {
+						System.out.println("Resource already present in this node.");
+					}
 					break;
 					
 				case "delete":
 					//delete resource code.
+					if (N_resources.contains(fileName)) {
+						N_resources.remove(fileName);
+					}
+					else {
+						System.out.println("Resource is not present in this node.");
+					}
 					break;
 					
 				case "print" :
@@ -106,7 +166,11 @@ public class unstructuredPeer {
 							+ "delete <Resource name>: deletes resource from the node.\n"
 							+ "leave: Leaves the network.\n"
 							+ "print: Prints routing table.\n"
-							+ "exit: Exits the program.");
+							+ "distribute: Distributes the resources.txt contents to all the nodes in the network. \n"
+							+ "Query: "
+							+ "exit: Exits the program."
+							//add the added features here
+							);
 					break;
 				}
 			}
@@ -133,13 +197,12 @@ public class unstructuredPeer {
 		sock.close();
 	}
 	
-	public static String msgRT(String Message, String ip, int Port) throws IOException {
+	public static String msgRT(String Message, String ip, int Port)throws IOException {
 		logger.log(Level.INFO, "Sending the message to Socket address: " + ip + " " + Port);
 		InetAddress IP = InetAddress.getByName(ip);
 		System.out.println("Message in msgRT: " + Message);
 		byte[] send = Message.getBytes();
 		DatagramPacket sndpkt = new DatagramPacket(send, send.length, IP, Port);
-		System.out.println("--------" + Message + "-------"+ ip + " : " + Integer.toString(Port));
 		sock.send(sndpkt);
 		byte[] rcv = new byte[1023];
 		DatagramPacket rcvpkt = new DatagramPacket(rcv, rcv.length);
@@ -319,6 +382,142 @@ public class unstructuredPeer {
 				System.err.println("Routing table contains non-numeric characters in the port field.");
 				logger.log(Level.WARNING, "Routing table contains non-numeric characters in the port field.");
 			}
+		}
+	}
+	
+	public static void fileDist(int numOfRes) {
+		try {
+			String peerAddress;
+			List<String> peerList = new ArrayList<String>();
+			
+			String ipList = "GET IPLIST " + uname;
+			int len = ipList.length();
+			String msg = String.format("%04d", len) + " " + ipList;
+			
+			String reply =  msgRT(msg,BS_ip,BS_port);
+			String[] a = reply.split(" ");
+			
+			if (a[3].equals("OK")) {
+				for (int i = 6; i <= a.length - 2; i = i + 2) {
+					peerAddress = a[i] + ":" + a[i+1];
+					peerList.add(peerAddress);
+				}
+			}
+			
+			File file  = new File("resources.txt");
+			FileReader fr = new FileReader(file);						
+			BufferedReader br = new BufferedReader(fr);
+			StringBuffer sb = new StringBuffer();
+			String line;
+			while ((line = br.readLine()) != null) {
+				if (line.contains("#")) {
+					continue;
+				}
+				sb.append(line);
+				sb.append("\n");
+			}
+			fr.close();
+			
+			System.out.println("File Names in this Node: ");
+			resources = sb.toString().split("\n");
+
+			/*for (int r = 0; r < numOfRes; r++) {
+				int i = random.nextInt(resources.length);
+				if (N_resources.contains(resources[i])) {
+					r--;
+					continue;
+				}
+				N_resources.add(resources[i]);
+			}
+			System.out.println(N_resources);*/
+			int i = 0 ;
+			for (String sockAddress : peerList) {
+				String[] pList = sockAddress.split(" ");
+				
+				while ( i < resources.length) {
+					List<String> subArr = Arrays.asList(resources).subList(i, i + numOfRes);
+					StringBuffer sbuffer = new StringBuffer();
+					sbuffer.append("Resources\n");
+					for (String s : subArr)
+					{
+						sbuffer.append(s+"\n");
+					}
+					int resoucesLength = sbuffer.length();
+					if ((pList[0] != N_ip) && (Integer.parseInt(pList[1]) != N_port)) {
+						send(String.format("%04d", resoucesLength) + " " + sbuffer.toString(), pList[0], Integer.parseInt(pList[1]));
+					}
+					else N_resources = subArr;
+					
+					i = i + numOfRes;
+				}
+			}
+		} catch (FileNotFoundException e) {
+			System.out.println("FileNotFoundException Occurred.");
+		}catch (IOException e) {
+			System.out.println("IOException Occured.");
+		}
+	}
+	
+	public static void queries(int numOfQueries, Double s) {
+		try {
+			ZipfDistribution zf = new ZipfDistribution(resources.length, s);
+			int searchKeyIndex;
+			String searchKey;
+			
+			for (int i = 0; i < numOfQueries; i++) {
+				searchKeyIndex = zf.sample() - 1;
+				
+				if (searchKeyIndex < 0) {
+					searchKeyIndex = 0;
+				}
+				
+				if (searchKeyIndex > resources.length) {
+					searchKeyIndex = resources.length - 1;
+				}
+				
+				searchKey = resources[searchKeyIndex];
+				
+				if (N_resources.contains(searchKey)) {
+					System.out.println("The queried file is already in this node.");
+					logger.log(Level.INFO,"The queried file is already in this node.");
+				}
+				else {
+					String search = "SER" + N_ip + " " + N_port + " " + searchKey + " " + hops;
+					String msg = String.format("%04d", search.length()) + " " + search;
+					for (String key : RT.keySet()) {
+						String[] sockAdd = key.split(" ");
+						lis.send(msg, sockAdd[0], Integer.parseInt(sockAdd[1]));
+						/*String[] repMsg = serRep.split(" " );
+						if (repMsg[1].equals("SEROK")) {
+							if (Integer.parseInt(repMsg[2]) >= 1){
+								System.out.println("Search Successful. Found " + repMsg[2] + " file(s) at " + repMsg[3] + ":" + repMsg[4]);
+								logger.log(Level.INFO, "Search Successful. Found " + repMsg[2] + " file(s) at " + repMsg[3] + ":" + repMsg[4]);
+							}
+							 add other errors.
+						}*/
+					}
+				}
+			}
+		} catch (NumberFormatException e) {
+			System.err.println("Error: Got non-integer port number.");
+		}
+	}
+	
+	public static void send(String Message, String ip, int Port) {
+		try {
+			logger.log(Level.INFO, "Sending the message to Socket address: " + ip + " " + Port);
+			InetAddress IP;
+			IP = InetAddress.getByName(ip);
+			System.out.println("Message in msgRT: " + Message);
+			byte[] send = Message.getBytes();
+			DatagramPacket sndpkt = new DatagramPacket(send, send.length, IP, Port);
+			sock.send(sndpkt);
+		} catch (UnknownHostException e) {
+			logger.log(Level.WARNING, "Error: Unable to resolve " + ip);
+			System.err.println("Error: Unable to resolve " + ip);
+		} catch (IOException e) {
+			logger.log(Level.WARNING, "Errror: IO exception while sending message");
+			System.err.println("Errror: IO exception while sending message");
 		}
 	}
 }
