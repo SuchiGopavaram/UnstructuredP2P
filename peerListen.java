@@ -1,13 +1,12 @@
 package UnstructuredP2P;
+
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
-
-import org.omg.CORBA.INTERNAL;
-
+import org.apache.commons.math3.distribution.ZipfDistribution;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
@@ -82,23 +81,26 @@ public class peerListen extends Thread{
 		}
 	}
 	
+	
+	
 	public void run() {
 		System.out.println("Entered listening.");
 
 		try {
 			Sock = new DatagramSocket(N_port);
-			
 			log_file = new FileHandler("Listen.Log");
 			SimpleFormatter formatter = new SimpleFormatter();
 		    log_file.setFormatter(formatter);
 			logger.addHandler(log_file);
 			logger.setUseParentHandlers(false);
 		} catch (SecurityException e2) {
-			System.err.println("file handler SecurityException");
+			System.err.println("File Handler SecurityException.");
+			logger.log(Level.WARNING, "File Handler SecurityException.");
 			
 		} catch (IOException e2) {
 			System.err.println(e2);
-			System.err.println("IOException. Socket Error");
+			System.err.println("IOException Occured. Socket Error.");
+			logger.log(Level.WARNING, "IOException Occured. Socket Error.");
 		}
 		
 		while(true) {
@@ -107,9 +109,9 @@ public class peerListen extends Thread{
 
 					String[] rcvReq = rcv();
 					String[] msg = rcvReq[0].split(" ");
-					if (Integer.parseInt(msg[0]) != rcvReq[0].length()-5) {
-						System.out.println("corrupted message received. Going to listening mode.");
-						logger.log(Level.WARNING, "corrupted message received. Going to listening mode.");
+					if (Integer.parseInt(msg[0]) != rcvReq[0].length() - 5) {
+						System.out.println("Corrupted message received. Going to listening mode.");
+						logger.log(Level.WARNING, "Corrupted message received. Going to listening mode.");
 						break;
 					}
 					
@@ -149,6 +151,7 @@ public class peerListen extends Thread{
 						
 					case "SER":
 						//Query code
+						logger.log(Level.INFO, "Received SEARCH (SER) message.");
 						int noFiles = 0;
 						String Files = " ";
 						for(String file :N_resources) {
@@ -160,12 +163,15 @@ public class peerListen extends Thread{
 						if (noFiles > 0) {
 							System.out.println("Match(es) for the queried file found in the node.");
 							logger.log(Level.INFO,"Match(es) for the queried file found in the node.");
-							send_msg = "SEROK " + noFiles + N_ip + " " + N_port + Files;
+							send_msg = "SEROK " + noFiles + " " + N_ip + " " + N_port + Files;
 							send_msg = String.format("%04d",send_msg.length()) + " " + send_msg;
 							send(send_msg, IP, Integer.parseInt(msg[3]));
+							logger.log(Level.INFO,"The SEROK message with the found files is sent to the query node.");
 						}
 						else {
-							for (int i = 1; i < msg.length-1;i++) {
+							logger.log(Level.INFO, "The queried file is not found in this node. Forwarding the search message to"
+									+ " the nodes in this node's routing table.");
+							for (int i = 1; i < msg.length - 1;i++) {
 								send_msg = send_msg + msg[i];
 							}
 							send_msg = send_msg + Integer.toString(Integer.parseInt(msg[msg.length]) - 1);
@@ -195,6 +201,7 @@ public class peerListen extends Thread{
 					break;
 				}	
 			}
+			logger.log(Level.INFO, "Closing the LOG file.");
 			log_file.close();
 		}
 	}
