@@ -455,9 +455,11 @@ public class unstructuredPeer {
 				}
 			}
 		} catch (FileNotFoundException e) {
-			System.out.println("FileNotFoundException Occurred.");
-		}catch (IOException e) {
-			System.out.println("IOException Occured.");
+			System.err.println("Error: FileNotFoundException Occurred.");
+		} catch (IOException e) {
+			System.err.println("Error: IOException Occured.");
+		} catch (ArrayIndexOutOfBoundsException e) {
+			System.err.println(e);
 		}
 	}
 	
