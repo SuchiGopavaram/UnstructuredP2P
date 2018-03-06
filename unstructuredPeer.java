@@ -30,7 +30,7 @@ public class unstructuredPeer {
 	public static ConcurrentHashMap<String, String> RT = new ConcurrentHashMap<String, String>();
 	public ConcurrentHashMap<String, ConcurrentHashMap<String, ArrayList<String>>> knownResourses;
 	public static String[] resources;
-	public static String uname ="Nodes20";
+	public static String uname ="Nodes21";
 	public static List<String> N_resources = Collections.synchronizedList(new ArrayList<String>());
 	public static peerListen lis;
 	public static int hops = 20;
@@ -126,7 +126,8 @@ public class unstructuredPeer {
 					else {
 						String query = "SER " + N_ip + " " + N_port + " " + S[1] + " " + hops + " " + System.currentTimeMillis();
 						String queryMsg = String.format("%04d", query.length()) + " " + query;
-						System.out.println(hops + queryMsg);
+						System.out.println(queryMsg);
+						System.out.println("---------");
 						for (String Add : RT.keySet()) {
 							String[] sockAdd = Add.split(" ");
 							lis.send(queryMsg, sockAdd[0], Integer.parseInt(sockAdd[1]));    // 

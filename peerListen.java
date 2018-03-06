@@ -222,7 +222,7 @@ public class peerListen extends Thread{
 						if (noFiles > 0) {
 							System.out.println("Match(es) for the queried file found in the node.");
 							logger.log(Level.INFO,"Match(es) for the queried file found in the node.");
-							send_msg = "SEROK " + noFiles + " " + N_ip + " " + N_port + " " + Integer.toString(Integer.parseInt(msg[5])-1) + " " + Files;
+							send_msg = "SEROK " + noFiles + " " + N_ip + " " + N_port + " " + Integer.toString(Integer.parseInt(msg[5])-1) + " "  + msg[6] + " " + Files;
 							send_msg = String.format("%04d",send_msg.length()) + " " + send_msg;
 							send(send_msg, msg[2], Integer.parseInt(msg[3]));
 							logger.log(Level.INFO,"The SEROK message with the found files is sent to the query node.");
@@ -230,10 +230,11 @@ public class peerListen extends Thread{
 						else {
 							logger.log(Level.INFO, "The queried file is not found in this node. Forwarding the search message to"
 									+ " the nodes in this node's routing table.");
-							for (int i = 1; i < msg.length - 1;i++) {
+							System.out.println("===="+ msg.length);
+							for (int i = 1; i < msg.length - 3;i++) {
 								send_msg = send_msg + msg[i] + " ";
 							}
-							send_msg = send_msg + Integer.toString(Integer.parseInt(msg[msg.length-2]) - 1);
+							send_msg = send_msg + " " + Integer.toString(Integer.parseInt(msg[msg.length-2]) - 1) + " " + msg[msg.length-1];
 							send_msg = String.format("%04d",send_msg.length()) + " " +send_msg;
 							for (String key: RTObj.keySet()) {
 								String[] keyArr = key.split(" " );
@@ -252,12 +253,14 @@ public class peerListen extends Thread{
 						int port = Integer.parseInt(msg[4]);
 						String SockAdd = IP+":"+port;
 						int foundHops = Integer.parseInt(msg[5]);
-						int headerLen = msg[0].length() + msg[1].length() + msg[2].length() + msg[3].length() + msg[4].length() + msg[5].length();
+						double sendTime = Double.parseDouble(msg[6]);
+						double timeNow = System.currentTimeMillis();
+						int headerLen = msg[0].length() + msg[1].length() + msg[2].length() + msg[3].length() + msg[4].length() + msg[5].length() + msg[6].length();
 						String foundFilesString = rcvReq[0].substring(headerLen + 7);
 						ArrayList<String> result = new ArrayList<String>();
 						result.add(msg[5]);
 						String[] foundFiles = foundFilesString.split("\n");
-						System.out.println("Found \n" + foundFilesString + "at "+ IP + ":" + port +" in "+ (hops)+"-"+(foundHops) + " hop(s).");
+						System.out.println("Found \n" + foundFilesString + "at "+ IP + ":" + port +" in "+ (hops)+"-"+(foundHops) + " hop(s) in "+(timeNow-sendTime)+" milliseconds");;
 						queryFlag = true;
 						for (String FileName: foundFiles) {
 							innerMap = knownResourses.get(FileName);
