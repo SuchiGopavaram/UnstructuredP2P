@@ -6,8 +6,8 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
-import org.apache.commons.math3.distribution.ZipfDistribution;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -22,17 +22,18 @@ public class peerListen extends Thread{
 	public ConcurrentMap<String, String> RTObj;
 	public int N_port;
 	public String N_ip;
-	public List<String> N_resources = new ArrayList<String>();
+	public static List<String> N_resources = Collections.synchronizedList(new ArrayList<String>());
 	
-	public peerListen(int N_Port, String N_IP, ConcurrentHashMap<String, String> table) {
+	public peerListen(int N_Port, String N_IP, ConcurrentHashMap<String, String> table,List<String> resources) {
 		N_port = N_Port;
 		N_ip = N_IP;
 		RTObj = table;
+		N_resources = resources;
 	}
 	
-	public void sendResources(List<String> res) {
+	/*public void sendResources(List<String> res) {
 		N_resources = res;
-	}
+	}*/
 	
 	public String[] rcv() {
 		System.out.println("waiting for message");
@@ -46,7 +47,7 @@ public class peerListen extends Thread{
 				logger.log(Level.INFO, "Packet received.");
 				break;
 			} catch (IOException e) {
-				System.err.println("Encountered IO exception. Got invalid IP address. Trying again. " 
+				System.err.println("Error: Encountered IO exception. Got invalid IP address. Trying again. " 
 						+Integer.toString(3-(i+1))+" times remaining.");
 				logger.log(Level.WARNING, "IOException while receiveing packet");
 			}
@@ -55,8 +56,7 @@ public class peerListen extends Thread{
 		String reply[] = {new String(rcvpkt.getData(),0,rcvpkt.getLength()),
 				rcvpkt.getAddress().toString().substring(1, rcvpkt.getAddress().toString().length()),
 					Integer.toString(rcvpkt.getPort())};
-		
-		System.out.println(reply);
+		System.out.println(reply[0]);
 		return reply;
 	}
 	
@@ -74,7 +74,7 @@ public class peerListen extends Thread{
 				break;
 			} catch (IOException e) {
 				System.err.println(e);
-				System.err.println("Encountered IO exception. Got invalid IP address. Trying again. "
+				System.err.println("Error: Encountered IO exception. Got invalid IP address. Trying again. "
 							+ Integer.toString(3-(i+1))+" times remaining.");
 				logger.log(Level.WARNING, "IOException while receiveing packet");
 			}
@@ -101,7 +101,8 @@ public class peerListen extends Thread{
 			System.err.println(e2);
 			System.err.println("IOException Occured. Socket Error.");
 			logger.log(Level.WARNING, "IOException Occured. Socket Error.");
-		}
+			
+		} 
 		
 		while(true) {
 			while(true) {
@@ -116,15 +117,15 @@ public class peerListen extends Thread{
 					}
 					
 					String IP = msg[2];
-					String SockAdd = IP+" "+msg[3];
 					String send_msg = "";
+					String sockAdd = IP+ " " + msg[3];	
 					
 					switch (msg[1]) {
 					
 					case "JOIN":
 						logger.log(Level.INFO, "Received Join message.");
-						RTObj.put(SockAdd,"");
-						if(RTObj.containsKey(SockAdd)) {
+						RTObj.put(sockAdd,"");
+						if(RTObj.containsKey(sockAdd)) {
 							send_msg = "0008 JOINOK 0";
 							logger.log(Level.INFO, "Added node to Routing Table.");
 						}
@@ -137,8 +138,8 @@ public class peerListen extends Thread{
 						
 					case "LEAVE":
 						logger.log(Level.INFO, "Received LEAVE message.");
-						RTObj.remove(SockAdd);
-						if(!RTObj.containsKey(SockAdd)) {
+						RTObj.remove(sockAdd);
+						if(!RTObj.containsKey(sockAdd)) {
 							send_msg = "0009 LEAVEOK 0";
 							logger.log(Level.INFO, "LEAVE successful.");
 						}
@@ -165,7 +166,7 @@ public class peerListen extends Thread{
 							logger.log(Level.INFO,"Match(es) for the queried file found in the node.");
 							send_msg = "SEROK " + noFiles + " " + N_ip + " " + N_port + Files;
 							send_msg = String.format("%04d",send_msg.length()) + " " + send_msg;
-							send(send_msg, IP, Integer.parseInt(msg[3]));
+							send(send_msg, msg[2], Integer.parseInt(msg[3]));
 							logger.log(Level.INFO,"The SEROK message with the found files is sent to the query node.");
 						}
 						else {
@@ -182,7 +183,19 @@ public class peerListen extends Thread{
 								}			
 							}
 						}
+						break;
 						
+					case "RESOURCES":
+						String filesLine = rcvReq[0].substring(15);
+						System.out.println(filesLine);
+						String[] filesList = filesLine.split("\n");
+						for (String file : filesList) {
+							N_resources.add(file);
+						}
+						System.out.println("Resources in this node:\n");
+						for (String file : N_resources) {
+							System.out.println(file);
+						}
 						break;
 						
 					default:
@@ -192,11 +205,11 @@ public class peerListen extends Thread{
 					break;
 				} 
 				catch (NumberFormatException e1) {
-					System.err.println("Received alphabets in port number.");
+					System.err.println("Error: Received alphabets in port number.");
 					logger.log(Level.WARNING, "Received alphabets in port number.");
 					break;
 				} catch (SecurityException e) {
-					System.err.println("SecurityException occurred.");
+					System.err.println("Error: SecurityException occurred.");
 					logger.log(Level.WARNING, "SecurityException occurred.");
 					break;
 				}	

@@ -1,5 +1,4 @@
 package UnstructuredP2P;
-
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -11,6 +10,7 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Scanner;
 import java.util.concurrent.ConcurrentHashMap;
@@ -33,7 +33,7 @@ public class unstructuredPeer {
 	public static ConcurrentHashMap<String, String> RT = new ConcurrentHashMap<String, String>();
 	public static String[] resources;
 	public static String uname = "Nodes20";
-	public static List<String> N_resources = new ArrayList<String>();
+	public static List<String> N_resources = Collections.synchronizedList(new ArrayList<String>());
 	public static peerListen lis;
 	public static int hops = 20;
 	
@@ -53,32 +53,25 @@ public class unstructuredPeer {
 			N_port = Integer.parseInt(args[0]);
 			BS_port = Integer.parseInt(args[2]);
 
-			if ((N_port <= 5000 || N_port >= 65535) || (BS_port <= 5000 || BS_port >= 65535 )) {  // Handling Port Exceptions.
-				System.out.println("Please type an integer in the range of 5001 - 65535 for port number(s).");
+			if ((N_port <= 5000 || N_port >= 65535) || (BS_port <= 5000 || BS_port >= 65535 )) {		// Handling Port Exceptions.
+				System.out.println("Error: Please type an integer in the range of 5001 - 65535 for port number(s).");
 				logger.log(Level.WARNING, "User assigned a port number which is out of port ranges.");
 				System.exit(1);
 			}
+	
+			sock = new DatagramSocket();								// Initializing the socket.
+			logger.log(Level.INFO, "Socket has been created.");		
+			logger.log(Level.INFO, "Trying to register with the BootStrap server with username given by user: " + uname);
+			//System.out.println("Registering to the Network in Bootstrap Server");
+			Register(uname);											// Calling Register method to register node with BootStrap server.
 			
-			
-			lis = new peerListen(N_port, N_ip, RT);             		// Initializing the peerListen class.
+			lis = new peerListen(N_port, N_ip, RT, N_resources);             		// Initializing the peerListen class.
 			new Thread(lis).start();									// Starting a new thread for listening.
 			logger.log(Level.INFO,"Listen thread started");
 			
-			sock = new DatagramSocket();								// Initializing the socket.
-			logger.log(Level.INFO, "Socket has been created.");
-			
-			logger.log(Level.INFO, "Trying to register with the BootStrap server with username given by user: " + uname);
-			//System.out.println("Registering to the Network in Bootstrap Server");
-			unstructuredPeer.Register(uname);							// Calling Register method to register node with BootStrap server.
-			
 			System.out.println("Sending join messages to the IP's received from Bootstrapper");
 			logger.log(Level.INFO, "Trying to join with the nodes provided by the BootStrap server.");
-			unstructuredPeer.join();									// Calling join method to join into the network.
-			
-			System.out.println("Routing Table: ");
-			for (String name: RT.keySet()){ 
-	            System.out.println(name);  
-			}
+			join();														// Calling join method to join into the network.
 			
 			Scanner sc = new Scanner(System.in);						// Catching the input from the Keyboard.
 			while(true) {
@@ -94,31 +87,33 @@ public class unstructuredPeer {
 					System.out.println("Sending leave messages to the BootStrap Server and nodes");
 					unstructuredPeer.leave(uname);					   // Calling the leave method.
 					RT.clear();										   // Clearing the Routing Table of the node after leaving.
+					logger.log(Level.INFO, "Left from BootStrap Server and nodes in the Routing Table.");
 					
 					System.out.println("Routing Table:");			   // Printing Routing Table after clearing it [Checking].
 					for (String name: RT.keySet()){ 
 			            System.out.println(name);  
 					}
+					break;
 					
 				case "distribute":									   // Catching the distribute message.
 					System.out.println("Distributing file contents to all the nodes in the network.");
 					logger.log(Level.INFO, "Distributing file contents to all the nodes in the network.");
-					fileDist(Integer.parseInt(S[1]));				   // Calling fileDist method to distribute resources to all
-					lis.sendResources(N_resources);					   // the nodes in the network.
+					fileDist(Integer.parseInt(S[1]));				   // Calling fileDist method to distribute resources to all the nodes
+					//lis.sendResources(N_resources);				   // in the network.
 					break;
-					
-				case "Query":										   
+								
+				case "query":                              			  // Catching the query message.
 					//External query code.
 					logger.log(Level.INFO, "External Query from the user received.");
 					int noFiles = 0;
 					String Files = "";
 					for(String file : N_resources) {
-						if (file.contains(S[1])) {
+						if (file.contains(S[1])) {					  // Checking for file matches.
 							Files = Files + file + "\n";
-							noFiles++;
+							noFiles++;						          // Counting the number of file matches.
 						}
 					} 
-					if (noFiles>0) {
+					if (noFiles > 0) {
 						System.out.println("The queried file is already in this node.");
 						logger.log(Level.INFO,"The queried file is already in this node.");
 					}
@@ -127,7 +122,7 @@ public class unstructuredPeer {
 						String queryMsg = String.format("%04d", query.length()) + " " + query;
 						for (String Add : RT.keySet()) {
 							String[] sockAdd = Add.split(" ");
-							send(queryMsg, sockAdd[0], Integer.parseInt(sockAdd[1]));
+							send(queryMsg, sockAdd[0], Integer.parseInt(sockAdd[1]));    // 
 							logger.log(Level.INFO,"The Search message is sent to all the nodes in the routing table.");
 						}
 					}
@@ -141,6 +136,10 @@ public class unstructuredPeer {
 					else {
 						System.out.println("Resource already present in this node.");
 						logger.log(Level.INFO,"The given resource is already present in this node.");
+						System.out.println("Resources in this node:\n");
+						for (String file : N_resources) {
+							System.out.println(file + "\n");
+						}
 					}
 					break;
 					
@@ -153,14 +152,45 @@ public class unstructuredPeer {
 					else {
 						System.out.println("Resource is not present in this node.");
 						logger.log(Level.INFO,"The given resource is not present in this node's resources.");
+						System.out.println("Resources in this node:\n");
+						for (String file : N_resources) {
+							System.out.println(file + "\n");
+						}
 					}
 					break;
 					
 				case "print" :
-					System.out.println("Routing Table: ");
-					logger.log(Level.INFO,"Printing the Routing Table of the current node.");
-					for (String name: RT.keySet()){ 
-			            System.out.println(name);  
+					try {
+						if (S[1].equals("resources")) {
+							System.out.println("Resources in this node:\n");
+							for (String file : N_resources) {
+								System.out.println(file);
+							}
+						}
+						else if ((S[1] + S[2]).equals("routingtable")) {
+							try {
+								if (S[3].equals("size")) {
+									System.out.println("Routing Table Size: "+ RT.size());
+								}
+							}catch(ArrayIndexOutOfBoundsException e){
+								System.out.println("Routing Table: ");
+								for (String name: RT.keySet()){ 
+						            System.out.println(name);
+								}
+							}
+						}
+						else {
+							System.out.println("Usage:\n"
+									+ "print routing table: 		prints the routing table\n"
+									+ "print routing table size: 	prints the size of routing table\n"
+									+ "print resources:				prints the resources present in the node\n");
+						}
+					} catch (ArrayIndexOutOfBoundsException e) {
+						System.out.println("Usage:\n"
+								+ "print routing table: 		prints the routing table\n"
+								+ "print routing table size: 	prints the size of routing table\n"
+								+ "print resources:				prints the resources present in the node\n");
+						e.printStackTrace();
 					}
 					break;
 					
@@ -182,13 +212,16 @@ public class unstructuredPeer {
 					sc.close();
 					System.exit(0);
 				default:
-					System.out.println("Usage: \n add <Resource name>: Adds resource to the node.\n"
-							+ "delete <Resource name>: deletes resource from the node.\n"
-							+ "leave: Leaves the network.\n"
-							+ "print: Prints the routing table.\n"
-							+ "distribute: Distributes the resources.txt contents to all the nodes in the network. \n"
-							+ "Query: Searches for the given file."
-							+ "exit: Exits the program."
+					System.out.println("Usage: \n"
+							+ "add <Resource name>:    			Adds resource to the node.\n"
+							+ "delete <Resource name>:			Deletes resource from the node.\n"
+							+ "leave: 							Leaves the network.\n"
+							+ "print routing: 					Prints routing table.\n"
+							+ "print routing table size: 		Prints the size of routing table"
+							+ "print resources: 				Prints resources in this node.\n"
+							+ "distribute <resources per node>: Distributes the resources.txt contents to all the nodes in the network. \n"
+							+ "query: 							\n"
+							+ "exit: 							Exits the program.\n"
 							//add the added features here
 							);
 					break;
@@ -197,19 +230,20 @@ public class unstructuredPeer {
 		}
 		
 		catch (NumberFormatException e) {
-			System.err.println("Please give an integer port number(s).");
+			System.err.println("Error: Please give an integer port number(s).");
 			logger.log(Level.WARNING, "User gave a non-numeric port number(s).");
 			System.exit(1);
 		}
 		catch (IOException e) {
-			System.out.println("IOException Occured.");
-			System.err.println("Check the IP address. Only numbers less than 255 should be given in each field of IP.");
+			System.out.println("Error: IOException Occured.");
+			System.err.println("Error: Check the IP address. Only numbers less than 255 should be given in each field of IP.");
 			logger.log(Level.WARNING, "IOException Occured. "
-					+ "IP address unresolvable. User assigned an invalid range of IP number.");
+					+ "User assigned an invalid range of IP number.");
 			System.exit(1);
 		}
 		catch (ArrayIndexOutOfBoundsException e) {
-			System.err.println("Check the number of arguments given. "
+			System.err.println(e);
+			System.err.println("Error: Check the number of arguments given. "
 					+ "\n Command Usage: java Unstructuredpeer REG <Node_Port> <BootStrap_IP> <BootStrap_Port> <UserName>");
 			logger.log(Level.WARNING, "Invalid number of arguments given." 
 					+ "\n Command Usage: java Unstructuredpeer REG <Node_Port> <BootStrap_IP> <BootStrap_Port> <UserName>");
@@ -220,7 +254,6 @@ public class unstructuredPeer {
 	public static String msgRT(String Message, String ip, int Port)throws IOException {
 		logger.log(Level.INFO, "Sending the message to Socket address: " + ip + " " + Port);
 		InetAddress IP = InetAddress.getByName(ip);
-		System.out.println("Message in msgRT: " + Message);
 		byte[] send = Message.getBytes();
 		DatagramPacket sndpkt = new DatagramPacket(send, send.length, IP, Port);
 		sock.send(sndpkt);
@@ -229,7 +262,6 @@ public class unstructuredPeer {
 		sock.receive(rcvpkt);
 		logger.log(Level.INFO, "Received the message from Socket address: " + ip + " " + Port);
 		String reply = new String(rcvpkt.getData(),0,rcvpkt.getLength());
-		System.out.println(reply);
 		return reply;
 	}
 	
@@ -291,10 +323,11 @@ public class unstructuredPeer {
 				logger.log(Level.WARNING, "Unknown command, undefined characters to BootStrap Server while registering.");
 				System.exit(1);
 			}
-		} catch (IOException e) {
+		}catch (IOException e) {
 			System.out.println("IOException Occured while registering to the BootStrap server.");
+			logger.log(Level.WARNING, "IOException Occured while registering to the BootStrap server.");
 		}
-
+		
 	}
 	
 	public static void join()  {
@@ -304,7 +337,6 @@ public class unstructuredPeer {
 			JoinMsg = String.format("%04d", len) + " " + JoinMsg;
 			for (String num: RT.keySet()) {
 				String[] sockAdd = num.split(" ");
-				System.out.println(sockAdd[0]+":"+sockAdd[1]);
 				String reply = msgRT(JoinMsg, sockAdd[0], Integer.parseInt(sockAdd[1]));
 				String[] node_reply = reply.split(" ");
 				if (node_reply[1] == "JOINOK"){
@@ -316,20 +348,20 @@ public class unstructuredPeer {
 						logger.log(Level.INFO, num + " has been removed from the routing table as the JOIN message failed.");
 					}
 					if (node_reply[2] == "9999") {
-						System.out.println("Node " + num + " did not add my IP in it's Routing Table!");
-						logger.log(Level.INFO, "Node " + num + " did not add my IP in it's Routing Table!");
+						System.out.println("Node " + num + " did not added my IP in it's Routing Table!");
+						logger.log(Level.INFO, "Node " + num + " did not added my IP in it's Routing Table!");
 					}
 				}
 			}
 			
 		} catch (NumberFormatException e) {
 			System.err.println(e);
-			System.err.println("Routing table contains non-numeric characters in the port field.");
+			System.err.println("Error: Routing table contains non-numeric characters in the port field.");
 			logger.log(Level.WARNING, "Routing table contains non-numeric characters in the port field.");
 		}
 		catch (IOException e) {
-			System.err.println("I/O error occured while joining to the network.");
-			logger.log(Level.WARNING, "I/O error occured while joining to the network.");
+			System.err.println("Error: I/O error occured while joining to the network.");
+			logger.log(Level.WARNING, "Error: I/O error occured while joining to the network.");
 		}
 		
 	}
@@ -350,21 +382,21 @@ public class unstructuredPeer {
 							logger.log(Level.INFO, "Left Bootstrap Server Successfully.");
 						}
 						else if (bs_reply[bs_reply.length - 1].equals("-1")) {
-							System.out.println("Error in DEL Command.");
+							System.out.println("Error: in DEL Command.");
 							logger.log(Level.WARNING, "Error in DEL Command.");
 						}
 						else if (bs_reply[bs_reply.length - 1].equals("9998")) {
-							System.out.println("(IP Address + Port ) not registered for username.");
+							System.out.println("Error: (IP Address + Port ) not registered for username.");
 							logger.log(Level.WARNING, "(IP Address + Port ) not registered for username.");
 						}
 						else if (bs_reply[bs_reply.length - 1].equals("9999")) {
-							System.out.println("Username not registered with BootStrap Server.");
+							System.out.println("Error: Username not registered with BootStrap Server.");
 							logger.log(Level.WARNING, "Username not registered with BootStrap Server.");
 						}
 						break;
 					}
 					else {
-						System.out.println("Bootstrapper did not remove my IP from it's List! Trying again. "
+						System.out.println("Error: Bootstrapper did not remove my IP from it's List! Trying again. "
 								+ Integer.toString(3 - (i + 1))+" times remaining");
 						logger.log(Level.WARNING, "Bootstrapper did not remove my IP from it's List! Trying again. "
 								+ Integer.toString(3 - (i + 1)) + " times remaining");
@@ -386,7 +418,7 @@ public class unstructuredPeer {
 							break;
 						}
 						else if (node_reply[2] == "9999") {
-							System.out.println("Node " + num + " did not remove my IP from it's Routing Table! Trying again. " 
+							System.out.println("Error: Node " + num + " did not remove my IP from it's Routing Table! Trying again. " 
 									+ Integer.toString(3 - (i + 1))+" times remaining");
 							logger.log(Level.WARNING, "Node" + num + " did not remove my IP from it's Routing Table! Trying again. "
 									+ Integer.toString(3 - (i + 1))+" times remaining");
@@ -396,11 +428,11 @@ public class unstructuredPeer {
 				break;
 			}
 			catch (IOException e) {
-				System.err.println("I/O error occurred while joining to the network.");
+				System.err.println("Error: I/O error occurred while joining to the network.");
 				logger.log(Level.WARNING, "I/O error occurred while joining to the network.");
 			}
 			catch (NumberFormatException e) {
-				System.err.println("Routing table contains non-numeric characters in the port field.");
+				System.err.println("Error: Routing table contains non-numeric characters in the port field.");
 				logger.log(Level.WARNING, "Routing table contains non-numeric characters in the port field.");
 			}
 		}
@@ -423,39 +455,45 @@ public class unstructuredPeer {
 				sb.append("\n");
 			}
 			fr.close();
-			
-			System.out.println("File Names in this Node: ");
-			resources = sb.toString().split("\n");
+			br.close();
 
+			resources = sb.toString().split("\n");
+			
 			int i = 0 ;
 			for (String sockAddress : peerList) {
-				String[] pList = sockAddress.split(":");
+				String[] pList = sockAddress.split(":");				
+				List<String> subArr = Arrays.asList(resources).subList(i, i + numOfRes);
+				String sbuffer = "";
+				sbuffer = sbuffer + "RESOURCES ";
 				
-				while ( i < resources.length) {
-					List<String> subArr = Arrays.asList(resources).subList(i, i + numOfRes);
-					StringBuffer sbuffer = new StringBuffer();
-					sbuffer.append("Resources\n");
-					for (String s : subArr){
-						sbuffer.append(s + "\n");
-					}
-					int resourcesLength = sbuffer.length();
-					if ((pList[0] != N_ip) && (Integer.parseInt(pList[1]) != N_port)) {
-						send(String.format("%04d", resourcesLength) + " " + sbuffer.toString(), pList[0], Integer.parseInt(pList[1]));
-						logger.log(Level.INFO, "Successfully distributed the resources to all the nodes.");
-					}
-					else N_resources = subArr;
-					
-					i = i + numOfRes;
+				for (String s : subArr)
+				{
+					sbuffer = sbuffer + s + "\n";
 				}
-				System.out.println(N_resources);
+				System.out.println(sbuffer);
+				int resourcesLength = sbuffer.length();
+				System.out.println(pList[0]+" " + N_ip+"\n"+Integer.parseInt(pList[1]) +" "+N_port);
+				if (pList[0].equals(N_ip) && Integer.parseInt(pList[1]) == N_port) {
+					System.out.println("sending myself");
+					N_resources = subArr;
+				}
+				else {
+					System.out.println("sending resources");
+					send(String.format("%04d", resourcesLength) + " " + sbuffer, pList[0], Integer.parseInt(pList[1]));
+				}
+				i = i + numOfRes;
+				if (i == resources.length) {
+					System.out.println("All resources distributed.");
+					break;
+				}			
 			}
 		} catch (FileNotFoundException e) {
-			System.err.println("Error: FileNotFoundException Occurred while distributing the resources to the nodes.");
+			System.err.println("Error: FileNotFoundException Occurred.");
 			logger.log(Level.WARNING, "Error: FileNotFoundException Occurred while distributing the resources to the nodes.");
-		}catch (IOException e) {
-			System.err.println("Error: IOException Occured while distributing the resources to the nodes.");
+		} catch (IOException e) {
+			System.err.println("Error: IOException Occured.");
 			logger.log(Level.WARNING, "Error: IOException Occured while distributing the resources to the nodes.");
-		}catch (ArrayIndexOutOfBoundsException e) {
+		} catch (ArrayIndexOutOfBoundsException e) {
 			e.printStackTrace();
 			System.err.println("Error: ArrayIndexOutOfBoundsException occured while distributing the resources to the nodes.");
 			logger.log(Level.WARNING, "Error: ArrayIndexOutOfBoundsException occured while distributing the resources to the nodes.");
@@ -511,10 +549,10 @@ public class unstructuredPeer {
 		
 	public static void send(String Message, String ip, int Port) {
 		try {
+			System.out.println(Message);
 			logger.log(Level.INFO, "Sending the message to Socket address: " + ip + " " + Port);
 			InetAddress IP;
 			IP = InetAddress.getByName(ip);
-			//System.out.println("Message in send: " + Message);
 			byte[] send = Message.getBytes();
 			DatagramPacket sndpkt = new DatagramPacket(send, send.length, IP, Port);
 			sock.send(sndpkt);
