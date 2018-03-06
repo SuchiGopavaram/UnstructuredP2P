@@ -14,7 +14,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Scanner;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
 import java.util.logging.FileHandler;
@@ -29,12 +28,12 @@ public class unstructuredPeer {
 	public static Logger logger = Logger.getLogger("NodeLog");
 	public static DatagramSocket sock;
 	public static ConcurrentHashMap<String, String> RT = new ConcurrentHashMap<String, String>();
-	public ConcurrentMap<String, ConcurrentMap<String, ArrayList<String>>> knownResourses;
+	public ConcurrentHashMap<String, ConcurrentHashMap<String, ArrayList<String>>> knownResourses;
 	public static String[] resources;
 	public static String uname ="Nodes20";
 	public static List<String> N_resources = Collections.synchronizedList(new ArrayList<String>());
 	public static peerListen lis;
-	public static int hops =20;
+	public static int hops = 20;
 	
 	public static void main(String[] args) {
 		try {
@@ -83,10 +82,12 @@ public class unstructuredPeer {
 			while(true) {
 				String s = sc.nextLine();
 				String[] S = s.split(" ");
-				String fileName = "";
+				String fileN = "";
 				for (int i = 1; i < S.length; i++) {
-					fileName = fileName + S[i] + " ";
+					fileN = fileN + S[i] + " ";
 				}
+				String fileName = fileN.toString();
+				
 				switch(S[0]){
 				case "leave":										   // Catching the LEAVE message.
 					logger.log(Level.INFO, "Trying to leave from BootStrap Server and nodes in the Routing Table.");
@@ -123,11 +124,12 @@ public class unstructuredPeer {
 						logger.log(Level.INFO,"The queried file is already in this node.");
 					}
 					else {
-						String query = "SER " + N_ip + " " + N_port + " " + S[1] + " " + hops;
+						String query = "SER " + N_ip + " " + N_port + " " + S[1] + " " + hops + " " + System.currentTimeMillis();
 						String queryMsg = String.format("%04d", query.length()) + " " + query;
+						System.out.println(hops + queryMsg);
 						for (String Add : RT.keySet()) {
 							String[] sockAdd = Add.split(" ");
-							send(queryMsg, sockAdd[0], Integer.parseInt(sockAdd[1]));    // 
+							lis.send(queryMsg, sockAdd[0], Integer.parseInt(sockAdd[1]));    // 
 							logger.log(Level.INFO,"The Search message is sent to all the nodes in the routing table.");
 						}
 					}
@@ -145,33 +147,39 @@ public class unstructuredPeer {
 					break;
 					
 				case "add":
-					if (!N_resources.contains(fileName)) {
-						N_resources.add(fileName);
-						logger.log(Level.INFO,"A resource is added to the node's resources.");
+					//add resource code.
+					boolean mark = false;
+					for (int i = 0; i < N_resources.size(); i++) {
+						if(N_resources.get(i).toString().equals(fileName)) {
+							mark = true;
+							continue;
+						}
+					}
+					if (mark) {
+						System.out.println("Resource is already present in the node.");
+						System.out.println(N_resources);
 					}
 					else {
-						System.out.println("Resource already present in this node.");
-						logger.log(Level.INFO,"The given resource is already present in this node.");
-						System.out.println("Resources in this node:\n");
-						for (String file : N_resources) {
-							System.out.println(file);
-						}
+						N_resources.add(fileName);
 					}
 					break;
 					
-				case "delete":
+				case "remove":
 					//delete resource code.
-					if (N_resources.contains(fileName)) {
+					boolean Mark = false;
+					for (int i = 0; i < N_resources.size(); i++) {
+						if(N_resources.get(i).toString().equals(fileName)) {
+							Mark = true;
+							continue;
+						}
+					}
+					if (Mark) {
 						N_resources.remove(fileName);
-						logger.log(Level.INFO,"The given resource is deleted from the node's resources.");
+						System.out.println("Resource is removed from the node.");
 					}
 					else {
-						System.out.println("Resource is not present in this node.");
-						logger.log(Level.INFO,"The given resource is not present in this node's resources.");
-						System.out.println("Resources in this node:\n");
-						for (String file : N_resources) {
-							System.out.println(file);
-						}
+						System.out.println("Resource is not present in the node.");
+						System.out.println(N_resources);
 					}
 					break;
 					
@@ -234,14 +242,14 @@ public class unstructuredPeer {
 					
 				default:
 					System.out.println("Usage: \n"
-							+ "add <Resource name>:    			Adds resource to the node.\n"
-							+ "delete <Resource name>:			Deletes resource from the node.\n"
-							+ "leave: 							Leaves the network.\n"
-							+ "DEL <username>:					Deletes the network <username> from Bootstrap Server.\n"
-							+ "print routing: 					Prints routing table.\n"
-							+ "print routing table size: 		Prints the size of routing table"
-							+ "print resources: 				Prints resources in this node.\n"
-							+ "distribute <resources per node>: Distributes the resources.txt contents to all the nodes in the network. \n"
+							+ "add <Resource name>:				Adds resource to the node.\n"
+							+ "remove <Resource name>:			Deletes resource from the node.\n"
+							+ "leave:							Leaves the network.\n"
+							+ "DEL UNAME <username>:			Deletes the network <username> from Bootstrap Server.\n"
+							+ "print routing:					Prints routing table.\n"
+							+ "print routing table size:		Prints the size of routing table\n"
+							+ "print resources:					Prints resources in this node.\n"
+							+ "distribute <resources per node>:	Distributes the resources.txt contents to all the nodes in the network.\n"
 							+ "query: 							\n"
 							+ "exit: 							Exits the program.\n"
 							//add the added features here
@@ -493,9 +501,7 @@ public class unstructuredPeer {
 				{
 					sbuffer = sbuffer + s + "\n";
 				}
-				System.out.println(sbuffer);
 				int resourcesLength = sbuffer.length();
-				System.out.println(pList[0]+" " + N_ip+"\n"+Integer.parseInt(pList[1]) +" "+N_port);
 				if (pList[0].equals(N_ip) && Integer.parseInt(pList[1]) == N_port) {
 					N_resources = subArr;
 				}
@@ -524,7 +530,6 @@ public class unstructuredPeer {
 		
 	public static void send(String Message, String ip, int Port) {
 		try {
-			System.out.println(Message);
 			logger.log(Level.INFO, "Sending the message to Socket address: " + ip + " " + Port);
 			InetAddress IP;
 			IP = InetAddress.getByName(ip);

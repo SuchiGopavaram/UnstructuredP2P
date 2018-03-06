@@ -9,7 +9,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.logging.FileHandler;
 import java.util.logging.Level;
 import org.apache.commons.math3.distribution.ZipfDistribution;
@@ -19,17 +18,17 @@ public class peerListen extends Thread{
 	public static Logger logger = Logger.getLogger("ListenLog");
 	public FileHandler log_file;
 	public static DatagramSocket Sock;
-	public ConcurrentMap<String, String> RTObj;
+	public ConcurrentHashMap<String, String> RTObj;
 	public int N_port;
 	public String N_ip;
-	public ConcurrentMap<String, ConcurrentMap<String, ArrayList<String>>> knownResourses;
-	public ConcurrentMap<String, ArrayList<String>> innerMap;
+	public ConcurrentHashMap<String, ConcurrentHashMap<String, ArrayList<String>>> knownResourses = new ConcurrentHashMap<String, ConcurrentHashMap<String, ArrayList<String>>>();
+	public ConcurrentHashMap<String, ArrayList<String>> innerMap;
 	public List<String> N_resources = Collections.synchronizedList(new ArrayList<String>());
 	public String[] resources;
 	public int hops;
 	public boolean queryFlag;
 	
-	public peerListen(int N_Port, String N_IP, ConcurrentHashMap<String, String> table,List<String> resources) {
+	public peerListen(int N_Port, String N_IP, ConcurrentHashMap<String, String> table, List<String> resources) {
 		N_port = N_Port;
 		N_ip = N_IP;
 		RTObj = table;
@@ -62,6 +61,7 @@ public class peerListen extends Thread{
 		String reply[] = {new String(rcvpkt.getData(),0,rcvpkt.getLength()),
 				rcvpkt.getAddress().toString().substring(1, rcvpkt.getAddress().toString().length()),
 					Integer.toString(rcvpkt.getPort())};
+		System.out.println(reply[0]+"||"+reply[1]+"||"+reply[2]);
 		return reply;
 	}
 	
@@ -88,6 +88,7 @@ public class peerListen extends Thread{
 
 	public void queries(int numOfQueries, Double s) {
 		try {
+			System.out.println(resources.length);
 			ZipfDistribution zf = new ZipfDistribution(resources.length, s);
 			int searchKeyIndex;
 			String searchKey;
@@ -199,19 +200,29 @@ public class peerListen extends Thread{
 						
 					case "SER":
 						//Query code
+						List<String> searchMessage = new ArrayList<String>();
+						
+						if (searchMessage.contains(rcvReq[0])) {
+							continue;
+						}
+						
 						logger.log(Level.INFO, "Received SEARCH (SER) message.");
+						if (Integer.parseInt(msg[5]) <= 0) {
+							continue;
+						}
+						
 						int noFiles = 0;
 						String Files = " ";
-						for(String file :N_resources) {
+						for(String file : N_resources) {
 							if (file.contains(msg[4])) {
-								Files = Files + " " + file;
+								Files = Files + file +"\n";
 								noFiles++;
 							}
 						}
 						if (noFiles > 0) {
 							System.out.println("Match(es) for the queried file found in the node.");
 							logger.log(Level.INFO,"Match(es) for the queried file found in the node.");
-							send_msg = "SEROK " + noFiles + " " + N_ip + " " + N_port + Files;
+							send_msg = "SEROK " + noFiles + " " + N_ip + " " + N_port + " " + Integer.toString(Integer.parseInt(msg[5])-1) + " " + Files;
 							send_msg = String.format("%04d",send_msg.length()) + " " + send_msg;
 							send(send_msg, msg[2], Integer.parseInt(msg[3]));
 							logger.log(Level.INFO,"The SEROK message with the found files is sent to the query node.");
@@ -220,16 +231,19 @@ public class peerListen extends Thread{
 							logger.log(Level.INFO, "The queried file is not found in this node. Forwarding the search message to"
 									+ " the nodes in this node's routing table.");
 							for (int i = 1; i < msg.length - 1;i++) {
-								send_msg = send_msg + msg[i];
+								send_msg = send_msg + msg[i] + " ";
 							}
-							send_msg = send_msg + Integer.toString(Integer.parseInt(msg[msg.length]) - 1);
+							send_msg = send_msg + Integer.toString(Integer.parseInt(msg[msg.length-2]) - 1);
+							send_msg = String.format("%04d",send_msg.length()) + " " +send_msg;
 							for (String key: RTObj.keySet()) {
 								String[] keyArr = key.split(" " );
-								if ((keyArr[0] != rcvReq[1]) && keyArr[1] != rcvReq[2]) {
-									send(send_msg, keyArr[0], Integer.parseInt(keyArr[1]));
-								}			
+								if (keyArr[0].equals(rcvReq[1]) && keyArr[1].equals(rcvReq[2])) {
+									continue;
+								}
+								send(send_msg, keyArr[0], Integer.parseInt(keyArr[1]));
 							}
 						}
+						searchMessage.add(rcvReq[0]);
 						break;
 						
 					case "SEROK":
@@ -239,11 +253,11 @@ public class peerListen extends Thread{
 						String SockAdd = IP+":"+port;
 						int foundHops = Integer.parseInt(msg[5]);
 						int headerLen = msg[0].length() + msg[1].length() + msg[2].length() + msg[3].length() + msg[4].length() + msg[5].length();
-						String foundFilesString = rcvReq[0].substring(headerLen + 6);
+						String foundFilesString = rcvReq[0].substring(headerLen + 7);
 						ArrayList<String> result = new ArrayList<String>();
 						result.add(msg[5]);
 						String[] foundFiles = foundFilesString.split("\n");
-						System.out.println("Found \n" + foundFilesString + "\n at "+ IP + ":" + port +" in "+ foundHops + " hops");
+						System.out.println("Found \n" + foundFilesString + "at "+ IP + ":" + port +" in "+ (hops)+"-"+(foundHops) + " hop(s).");
 						queryFlag = true;
 						for (String FileName: foundFiles) {
 							innerMap = knownResourses.get(FileName);
@@ -270,6 +284,7 @@ public class peerListen extends Thread{
 				catch (NumberFormatException e1) {
 					System.err.println("Error: Received alphabets in port number.");
 					logger.log(Level.WARNING, "Received alphabets in port number.");
+					e1.printStackTrace();
 					break;
 				} catch (SecurityException e) {
 					System.err.println("Error: SecurityException occurred.");
