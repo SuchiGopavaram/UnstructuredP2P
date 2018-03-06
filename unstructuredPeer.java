@@ -62,10 +62,9 @@ public class unstructuredPeer {
 			sock = new DatagramSocket();								// Initializing the socket.
 			logger.log(Level.INFO, "Socket has been created.");		
 			logger.log(Level.INFO, "Trying to register with the BootStrap server with username given by user: " + uname);
-			//System.out.println("Registering to the Network in Bootstrap Server");
 			Register(uname);											// Calling Register method to register node with BootStrap server.
 			
-			lis = new peerListen(N_port, N_ip, RT, N_resources);             		// Initializing the peerListen class.
+			lis = new peerListen(N_port, N_ip, RT, N_resources);        // Initializing the peerListen class.
 			new Thread(lis).start();									// Starting a new thread for listening.
 			logger.log(Level.INFO,"Listen thread started");
 			
@@ -79,7 +78,7 @@ public class unstructuredPeer {
 				String[] S = s.split(" ");
 				String fileName = "";
 				for (int i = 1; i < S.length; i++) {
-					fileName = fileName + S[i];
+					fileName = fileName + " " + S[i];
 				}
 				switch(S[0]){
 				case "leave":										   // Catching the LEAVE message.
@@ -99,8 +98,7 @@ public class unstructuredPeer {
 					System.out.println("Distributing file contents to all the nodes in the network.");
 					logger.log(Level.INFO, "Distributing file contents to all the nodes in the network.");
 					fileDist(Integer.parseInt(S[1]));				   // Calling fileDist method to distribute resources to all the nodes
-					//lis.sendResources(N_resources);				   // in the network.
-					break;
+					break;											   // in the network.
 								
 				case "query":                              			  // Catching the query message.
 					//External query code.
@@ -131,14 +129,14 @@ public class unstructuredPeer {
 				case "add":
 					if (!N_resources.contains(fileName)) {
 						N_resources.add(fileName);
-						logger.log(Level.INFO,"The given resource is add to the node's resources.");
+						logger.log(Level.INFO,"A resource is added to the node's resources.");
 					}
 					else {
 						System.out.println("Resource already present in this node.");
 						logger.log(Level.INFO,"The given resource is already present in this node.");
 						System.out.println("Resources in this node:\n");
 						for (String file : N_resources) {
-							System.out.println(file + "\n");
+							System.out.println(file);
 						}
 					}
 					break;
@@ -154,7 +152,7 @@ public class unstructuredPeer {
 						logger.log(Level.INFO,"The given resource is not present in this node's resources.");
 						System.out.println("Resources in this node:\n");
 						for (String file : N_resources) {
-							System.out.println(file + "\n");
+							System.out.println(file);
 						}
 					}
 					break;
@@ -172,7 +170,7 @@ public class unstructuredPeer {
 								if (S[3].equals("size")) {
 									System.out.println("Routing Table Size: "+ RT.size());
 								}
-							}catch(ArrayIndexOutOfBoundsException e){
+							} catch(ArrayIndexOutOfBoundsException e){
 								System.out.println("Routing Table: ");
 								for (String name: RT.keySet()){ 
 						            System.out.println(name);
@@ -190,7 +188,6 @@ public class unstructuredPeer {
 								+ "print routing table: 		prints the routing table\n"
 								+ "print routing table size: 	prints the size of routing table\n"
 								+ "print resources:				prints the resources present in the node\n");
-						e.printStackTrace();
 					}
 					break;
 					
@@ -201,21 +198,28 @@ public class unstructuredPeer {
 					sc.close();
 					System.exit(0);
 				case "DEL":
-					logger.log(Level.INFO,"Deleting the network from the BootStrap Server.");
-					System.out.println("Deleting the network from the BootStrap Server.");
-					if (S[1].equals("UNAME")) {
-						delUname(S[2]);
+					try {
+						logger.log(Level.INFO,"Deleting the network from the BootStrap Server.");
+						System.out.println("Deleting the network from the BootStrap Server.");
+						if (S[1].equals("UNAME")) {
+							delUname(S[2]);
+						}
+						logger.log(Level.INFO,"Shutting down the node.");
+						log_file.close();
+						lis.log_file.close();
+						sc.close();
+						System.exit(0);
+					} catch (ArrayIndexOutOfBoundsException e) {
+						System.out.println("Usage:\n"
+								+ "DEL UNAME <uname>: Deletes the network <uname> from the Bootstrap Server");
 					}
-					logger.log(Level.INFO,"Shutting down the node.");
-					log_file.close();
-					lis.log_file.close();
-					sc.close();
-					System.exit(0);
+					
 				default:
 					System.out.println("Usage: \n"
 							+ "add <Resource name>:    			Adds resource to the node.\n"
 							+ "delete <Resource name>:			Deletes resource from the node.\n"
 							+ "leave: 							Leaves the network.\n"
+							+ "DEL <username>:					Deletes the network <username> from Bootstrap Server.\n"
 							+ "print routing: 					Prints routing table.\n"
 							+ "print routing table size: 		Prints the size of routing table"
 							+ "print resources: 				Prints resources in this node.\n"
@@ -474,7 +478,6 @@ public class unstructuredPeer {
 				int resourcesLength = sbuffer.length();
 				System.out.println(pList[0]+" " + N_ip+"\n"+Integer.parseInt(pList[1]) +" "+N_port);
 				if (pList[0].equals(N_ip) && Integer.parseInt(pList[1]) == N_port) {
-					System.out.println("sending myself");
 					N_resources = subArr;
 				}
 				else {
@@ -530,14 +533,6 @@ public class unstructuredPeer {
 						String[] sockAdd = key.split(" ");
 						lis.send(msg, sockAdd[0], Integer.parseInt(sockAdd[1]));
 						logger.log(Level.INFO, "The Search message is sent to all the nodes in the routing table.");
-						/*String[] repMsg = serRep.split(" " );
-						if (repMsg[1].equals("SEROK")) {
-							if (Integer.parseInt(repMsg[2]) >= 1){
-								System.out.println("Search Successful. Found " + repMsg[2] + " file(s) at " + repMsg[3] + ":" + repMsg[4]);
-								logger.log(Level.INFO, "Search Successful. Found " + repMsg[2] + " file(s) at " + repMsg[3] + ":" + repMsg[4]);
-							}
-							 add other errors.
-						}*/
 					}
 				}
 			}

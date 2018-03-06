@@ -1,5 +1,4 @@
 package UnstructuredP2P;
-
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -30,11 +29,6 @@ public class peerListen extends Thread{
 		RTObj = table;
 		N_resources = resources;
 	}
-	
-	/*public void sendResources(List<String> res) {
-		N_resources = res;
-	}*/
-	
 	public String[] rcv() {
 		System.out.println("waiting for message");
 		byte[] rcve = new byte[1023];
@@ -56,7 +50,6 @@ public class peerListen extends Thread{
 		String reply[] = {new String(rcvpkt.getData(),0,rcvpkt.getLength()),
 				rcvpkt.getAddress().toString().substring(1, rcvpkt.getAddress().toString().length()),
 					Integer.toString(rcvpkt.getPort())};
-		System.out.println(reply[0]);
 		return reply;
 	}
 	
@@ -80,8 +73,6 @@ public class peerListen extends Thread{
 			}
 		}
 	}
-	
-	
 	
 	public void run() {
 		System.out.println("Entered listening.");
@@ -187,14 +178,9 @@ public class peerListen extends Thread{
 						
 					case "RESOURCES":
 						String filesLine = rcvReq[0].substring(15);
-						System.out.println(filesLine);
 						String[] filesList = filesLine.split("\n");
 						for (String file : filesList) {
 							N_resources.add(file);
-						}
-						System.out.println("Resources in this node:\n");
-						for (String file : N_resources) {
-							System.out.println(file);
 						}
 						break;
 						
