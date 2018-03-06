@@ -1,4 +1,4 @@
-package UnstructuredP2P;
+//package UnstructuredP2P;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -14,11 +14,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Scanner;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
-
-import org.apache.commons.math3.distribution.ZipfDistribution;
-
 import java.util.logging.FileHandler;
 import java.util.logging.Level;
 
@@ -31,11 +29,12 @@ public class unstructuredPeer {
 	public static Logger logger = Logger.getLogger("NodeLog");
 	public static DatagramSocket sock;
 	public static ConcurrentHashMap<String, String> RT = new ConcurrentHashMap<String, String>();
+	public ConcurrentMap<String, ConcurrentMap<String, ArrayList<String>>> knownResourses;
 	public static String[] resources;
-	public static String uname = "Nodes20";
+	public static String uname ="Nodes20";
 	public static List<String> N_resources = Collections.synchronizedList(new ArrayList<String>());
 	public static peerListen lis;
-	public static int hops = 20;
+	public static int hops =20;
 	
 	public static void main(String[] args) {
 		try {
@@ -58,7 +57,15 @@ public class unstructuredPeer {
 				logger.log(Level.WARNING, "User assigned a port number which is out of port ranges.");
 				System.exit(1);
 			}
-	
+			
+			Scanner sc = new Scanner(System.in);						// Catching the input from the Keyboard.
+			System.out.println("Give username of the network.");
+			//uname =sc.nextLine();
+			logger.log(Level.INFO, "Initiated username as " + uname);
+			System.out.println("Give the maximum number of hops.");
+			//hops = Integer.parseInt(sc.nextLine());
+			logger.log(Level.INFO, "Number of maximum hops is " + hops);
+			
 			sock = new DatagramSocket();								// Initializing the socket.
 			logger.log(Level.INFO, "Socket has been created.");		
 			logger.log(Level.INFO, "Trying to register with the BootStrap server with username given by user: " + uname);
@@ -72,13 +79,13 @@ public class unstructuredPeer {
 			logger.log(Level.INFO, "Trying to join with the nodes provided by the BootStrap server.");
 			join();														// Calling join method to join into the network.
 			
-			Scanner sc = new Scanner(System.in);						// Catching the input from the Keyboard.
+			
 			while(true) {
 				String s = sc.nextLine();
 				String[] S = s.split(" ");
 				String fileName = "";
 				for (int i = 1; i < S.length; i++) {
-					fileName = fileName + " " + S[i];
+					fileName = fileName + S[i] + " ";
 				}
 				switch(S[0]){
 				case "leave":										   // Catching the LEAVE message.
@@ -124,6 +131,17 @@ public class unstructuredPeer {
 							logger.log(Level.INFO,"The Search message is sent to all the nodes in the routing table.");
 						}
 					}
+					break;
+					
+				case "queries":
+					try {
+						lis.queries(Integer.parseInt(S[1]), Double.parseDouble(S[2]));
+					} catch (ArrayIndexOutOfBoundsException e) {
+						System.out.println("Usage:\n"
+								+ "queries <no of queries> <Zipf's exponent>: "
+								+ "Sends the number of queries as asked by the user with the given Zipf's distribution");
+						}
+					
 					break;
 					
 				case "add":
@@ -462,6 +480,7 @@ public class unstructuredPeer {
 			br.close();
 
 			resources = sb.toString().split("\n");
+			lis.addResourcesAndHops(resources, hops);
 			
 			int i = 0 ;
 			for (String sockAddress : peerList) {
@@ -500,45 +519,6 @@ public class unstructuredPeer {
 			e.printStackTrace();
 			System.err.println("Error: ArrayIndexOutOfBoundsException occured while distributing the resources to the nodes.");
 			logger.log(Level.WARNING, "Error: ArrayIndexOutOfBoundsException occured while distributing the resources to the nodes.");
-		}
-	}
-	
-	public static void queries(int numOfQueries, Double s) {
-		try {
-			ZipfDistribution zf = new ZipfDistribution(resources.length, s);
-			int searchKeyIndex;
-			String searchKey;
-			
-			for (int i = 0; i < numOfQueries; i++) {
-				searchKeyIndex = zf.sample() - 1;
-				
-				if (searchKeyIndex < 0) {
-					searchKeyIndex = 0;
-				}
-				
-				if (searchKeyIndex > resources.length) {
-					searchKeyIndex = resources.length - 1;
-				}
-				
-				searchKey = resources[searchKeyIndex];
-				
-				if (N_resources.contains(searchKey)) {
-					System.out.println("The queried file is already in this node.");
-					logger.log(Level.INFO,"The queried file is already in this node.");
-				}
-				else {
-					String search = "SER" + N_ip + " " + N_port + " " + searchKey + " " + hops + " " + System.currentTimeMillis();
-					String msg = String.format("%04d", search.length()) + " " + search;
-					for (String key : RT.keySet()) {
-						String[] sockAdd = key.split(" ");
-						lis.send(msg, sockAdd[0], Integer.parseInt(sockAdd[1]));
-						logger.log(Level.INFO, "The Search message is sent to all the nodes in the routing table.");
-					}
-				}
-			}
-		} catch (NumberFormatException e) {
-			System.err.println("Error: Got non-integer port number.");
-			logger.log(Level.WARNING, "Error: Got non-integer port number.");
 		}
 	}
 		

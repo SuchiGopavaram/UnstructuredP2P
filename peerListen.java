@@ -1,4 +1,4 @@
-package UnstructuredP2P;
+//package UnstructuredP2P;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -12,6 +12,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.logging.FileHandler;
 import java.util.logging.Level;
+import org.apache.commons.math3.distribution.ZipfDistribution;
 
 public class peerListen extends Thread{
 	
@@ -21,7 +22,12 @@ public class peerListen extends Thread{
 	public ConcurrentMap<String, String> RTObj;
 	public int N_port;
 	public String N_ip;
-	public static List<String> N_resources = Collections.synchronizedList(new ArrayList<String>());
+	public ConcurrentMap<String, ConcurrentMap<String, ArrayList<String>>> knownResourses;
+	public ConcurrentMap<String, ArrayList<String>> innerMap;
+	public List<String> N_resources = Collections.synchronizedList(new ArrayList<String>());
+	public String[] resources;
+	public int hops;
+	public boolean queryFlag;
 	
 	public peerListen(int N_Port, String N_IP, ConcurrentHashMap<String, String> table,List<String> resources) {
 		N_port = N_Port;
@@ -29,6 +35,12 @@ public class peerListen extends Thread{
 		RTObj = table;
 		N_resources = resources;
 	}
+	
+	public void addResourcesAndHops(String[] res, int hop) {
+		resources = res;
+		hops = hop;
+	}
+	
 	public String[] rcv() {
 		System.out.println("waiting for message");
 		byte[] rcve = new byte[1023];
@@ -73,6 +85,52 @@ public class peerListen extends Thread{
 			}
 		}
 	}
+
+	public void queries(int numOfQueries, Double s) {
+		try {
+			ZipfDistribution zf = new ZipfDistribution(resources.length, s);
+			int searchKeyIndex;
+			String searchKey;
+			
+			for (int i = 0; i < numOfQueries; i++) {
+				searchKeyIndex = zf.sample() - 1;
+				
+				if (searchKeyIndex < 0) {
+					searchKeyIndex = 0;
+				}
+				
+				if (searchKeyIndex > resources.length) {
+					searchKeyIndex = resources.length - 1;
+				}
+				
+				searchKey = resources[searchKeyIndex];
+				
+				if (N_resources.contains(searchKey)) {
+					System.out.println("The queried file is already in this node.");
+					logger.log(Level.INFO,"The queried file is already in this node.");
+				}
+				else {
+					String search = "SER" + N_ip + " " + N_port + " " + searchKey + " " + hops + " " + System.currentTimeMillis();
+					String msg = String.format("%04d", search.length()) + " " + search;
+					for (String key : RTObj.keySet()) {
+						String[] sockAdd = key.split(" ");
+						send(msg, sockAdd[0], Integer.parseInt(sockAdd[1]));
+						logger.log(Level.INFO, "The Search message is sent to all the nodes in the routing table.");
+					}
+				}
+				while (true) {
+					
+					
+					if (queryFlag){
+						break;						
+					}
+				}
+			}
+		} catch (NumberFormatException e) {
+			System.err.println("Error: Got non-integer port number.");
+			logger.log(Level.WARNING, "Error: Got non-integer port number.");
+		}
+	}
 	
 	public void run() {
 		System.out.println("Entered listening.");
@@ -107,16 +165,14 @@ public class peerListen extends Thread{
 						break;
 					}
 					
-					String IP = msg[2];
-					String send_msg = "";
-					String sockAdd = IP+ " " + msg[3];	
+					String send_msg = "";	
 					
 					switch (msg[1]) {
 					
 					case "JOIN":
 						logger.log(Level.INFO, "Received Join message.");
-						RTObj.put(sockAdd,"");
-						if(RTObj.containsKey(sockAdd)) {
+						RTObj.put(msg[2] + " " + msg[3],"");
+						if(RTObj.containsKey(msg[2] + " " + msg[3])) {
 							send_msg = "0008 JOINOK 0";
 							logger.log(Level.INFO, "Added node to Routing Table.");
 						}
@@ -129,8 +185,8 @@ public class peerListen extends Thread{
 						
 					case "LEAVE":
 						logger.log(Level.INFO, "Received LEAVE message.");
-						RTObj.remove(sockAdd);
-						if(!RTObj.containsKey(sockAdd)) {
+						RTObj.remove(msg[2] + " " + msg[3]);
+						if(!RTObj.containsKey(msg[2] + " " + msg[3])) {
 							send_msg = "0009 LEAVEOK 0";
 							logger.log(Level.INFO, "LEAVE successful.");
 						}
@@ -172,6 +228,27 @@ public class peerListen extends Thread{
 								if ((keyArr[0] != rcvReq[1]) && keyArr[1] != rcvReq[2]) {
 									send(send_msg, keyArr[0], Integer.parseInt(keyArr[1]));
 								}			
+							}
+						}
+						break;
+						
+					case "SEROK":
+						int noOfFilesFound = Integer.parseInt(msg[2]);
+						String IP = msg[3];
+						int port = Integer.parseInt(msg[4]);
+						String SockAdd = IP+":"+port;
+						int foundHops = Integer.parseInt(msg[5]);
+						int headerLen = msg[0].length() + msg[1].length() + msg[2].length() + msg[3].length() + msg[4].length() + msg[5].length();
+						String foundFilesString = rcvReq[0].substring(headerLen + 6);
+						ArrayList<String> result = new ArrayList<String>();
+						result.add(msg[5]);
+						String[] foundFiles = foundFilesString.split("\n");
+						System.out.println("Found \n" + foundFilesString + "\n at "+ IP + ":" + port +" in "+ foundHops + " hops");
+						queryFlag = true;
+						for (String FileName: foundFiles) {
+							innerMap = knownResourses.get(FileName);
+							if (innerMap!=null) {
+								innerMap.put(SockAdd, result );
 							}
 						}
 						break;
