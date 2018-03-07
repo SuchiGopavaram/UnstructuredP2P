@@ -16,16 +16,16 @@ The node registers to bootstrap with the given username and hop count and then s
 then the node enters into User Interface mode where it takes the following commands:
 
 Usage:
-	add <Resource name>:					 Adds resource to the node.
-	remove <Resource name>:					 Deletes resource from the node.
-	leave:									 Leaves the network.
-	DEL UNAME <username>:					 Deletes the network <username> from Bootstrap Server.
-	print routing:							 Prints routing table.
-	print routing table size:				 Prints the size of routing table
-	print resources:						 Prints resources in this node.
-	answered:								 Gives the queries answered till now.
-	forwarded:								 Gives the number of queries forwarded till now.
-	distribute <resources per node>:		 Distributes the resources.txt contents to all the nodes in the network.
-	query <(part of)file name>: 			 Queries the given file name or part of the file name
-	queries <no of qeries> <zipfs exponent>: Generates the number of queries given wit hthat Zipf's exponent.
-	exit: 									 Exits the program.
+	add <Resource name>:			Adds resource to the node.
+	remove <Resource name>:			Deletes resource from the node.
+	leave:					Leaves the network.
+	DEL UNAME <username>:			Deletes the network <username> from Bootstrap Server.
+	print routing:				Prints routing table.
+	print routing table size:		Prints the size of routing table
+	print resources:			Prints resources in this node.
+	answered:				Gives the queries answered till now.
+	forwarded:				Gives the number of queries forwarded till now.
+	distribute <resources per node>:	Distributes the resources.txt contents to all the nodes in the network.
+	query <(part of)file name>: 		Queries the given file name or part of the file name
+	queries <no of qeries> <zipfs exponent>:Generates the number of queries given wit hthat Zipf's exponent.
+	exit: 					Exits the program.
