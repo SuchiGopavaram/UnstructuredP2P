@@ -23,12 +23,13 @@ public class peerListen extends Thread{
 	public String N_ip;
 	public ConcurrentHashMap<String, ConcurrentHashMap<String, ArrayList<String>>> knownResourses = new ConcurrentHashMap<String, ConcurrentHashMap<String, ArrayList<String>>>();
 	public ConcurrentHashMap<String, ArrayList<String>> innerMap;
-	public List<String> N_resources = Collections.synchronizedList(new ArrayList<String>());
+	public ConcurrentHashMap<String, String> N_resources;
 	public String[] resources;
 	public int hops;
+	public List<String> searchMessage = new ArrayList<String>();
 	public boolean queryFlag;
 	
-	public peerListen(int N_Port, String N_IP, ConcurrentHashMap<String, String> table, List<String> resources) {
+	public peerListen(int N_Port, String N_IP, ConcurrentHashMap<String, String> table, ConcurrentHashMap<String, String> resources) {
 		N_port = N_Port;
 		N_ip = N_IP;
 		RTObj = table;
@@ -41,7 +42,6 @@ public class peerListen extends Thread{
 	}
 	
 	public String[] rcv() {
-		System.out.println("waiting for message");
 		byte[] rcve = new byte[1023];
 		DatagramPacket rcvpkt = new DatagramPacket(rcve, rcve.length);
 		
@@ -61,12 +61,10 @@ public class peerListen extends Thread{
 		String reply[] = {new String(rcvpkt.getData(),0,rcvpkt.getLength()),
 				rcvpkt.getAddress().toString().substring(1, rcvpkt.getAddress().toString().length()),
 					Integer.toString(rcvpkt.getPort())};
-		System.out.println(reply[0]+"||"+reply[1]+"||"+reply[2]);
 		return reply;
 	}
 	
 	public void send(String Message, String ip, int port) {
-		System.out.println("Sending message");
 		InetAddress IP;
 		for (int i = 0; i < 3; i++) {
 			try {
@@ -88,7 +86,6 @@ public class peerListen extends Thread{
 	
 	public void run() {
 		System.out.println("Entered listening.");
-		List<String> searchMessage = new ArrayList<String>();
 
 		try {
 			Sock = new DatagramSocket(N_port);
@@ -110,6 +107,7 @@ public class peerListen extends Thread{
 		while(true) {
 			while(true) {
 				try {
+					System.out.println("Listening thread started.");
 					String[] rcvReq = rcv();
 					String[] msg = rcvReq[0].split(" ");
 					if (Integer.parseInt(msg[0]) != rcvReq[0].length() - 5) {
@@ -153,7 +151,6 @@ public class peerListen extends Thread{
 					case "SER":
 						//Query code
 						logger.log(Level.INFO, "Received SEARCH (SER) message.");
-						System.out.println("SER Received: " +rcvReq[0]);
 						int gotHop = Integer.parseInt(msg[msg.length-2]);
 						
 						String saveMsg = "";
@@ -170,11 +167,7 @@ public class peerListen extends Thread{
 							System.out.println("Hop count reached. Killing packet.");
 							continue;
 						}
-						System.out.println("Req: "+saveMsg+"|");
-						for (String mesg : searchMessage) {
-							System.out.println(mesg + "|");
-						}
-						
+											
 						int noFiles = 0;
 						String Files = "";
 						String fName = "";
@@ -183,7 +176,7 @@ public class peerListen extends Thread{
 						}
 						fName = fName.trim();
 						
-						for(String file : N_resources) {
+						for(String file : N_resources.keySet()) {
 							if (file.contains(fName)) {
 								Files = Files + file +"\n";
 								noFiles++;
@@ -206,7 +199,6 @@ public class peerListen extends Thread{
 							send_msg = send_msg.trim();
 							send_msg = send_msg + " " + Integer.toString(gotHop - 1) + " " + msg[msg.length-1];
 							send_msg = String.format("%04d",send_msg.length()) + " " +send_msg;
-							System.out.println("Sending: " + send_msg);
 							for (String key: RTObj.keySet()) {
 								String[] keyArr = key.split(" " );
 								if (keyArr[0].equals(rcvReq[1]) && keyArr[1].equals(rcvReq[2])) {
@@ -215,11 +207,12 @@ public class peerListen extends Thread{
 								send(send_msg, keyArr[0], Integer.parseInt(keyArr[1]));
 							}
 						}
-						searchMessage.add(saveMsg);
+						if (!searchMessage.contains(saveMsg)) {
+							searchMessage.add(saveMsg);
+						}
 						break;
 						
 					case "SEROK":
-						System.out.println("SEROK Received: " +rcvReq[0]);
 						int noOfFilesFound = Integer.parseInt(msg[2]);
 						String IP = msg[3];
 						int port = Integer.parseInt(msg[4]);
@@ -246,7 +239,7 @@ public class peerListen extends Thread{
 						String filesLine = rcvReq[0].substring(15);
 						String[] filesList = filesLine.split("\n");
 						for (String file : filesList) {
-							N_resources.add(file);
+							N_resources.put(file,"");
 						}
 						break;
 						

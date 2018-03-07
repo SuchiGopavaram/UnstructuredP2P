@@ -34,7 +34,7 @@ public class unstructuredPeer {
 	public ConcurrentHashMap<String, ConcurrentHashMap<String, ArrayList<String>>> knownResourses;
 	public static String[] resources;
 	public static String uname ="Nodes20";
-	public static List<String> N_resources = Collections.synchronizedList(new ArrayList<String>());
+	public static ConcurrentHashMap<String, String> N_resources = new ConcurrentHashMap<String, String>();
 	public static peerListen lis;
 	public static int hops = 20;
 	
@@ -68,6 +68,23 @@ public class unstructuredPeer {
 			//hops = Integer.parseInt(sc.nextLine());
 			logger.log(Level.INFO, "Number of maximum hops is " + hops);
 			
+			File Resourcefile  = new File("resources.txt");
+			FileReader fr = new FileReader(Resourcefile);						
+			BufferedReader br = new BufferedReader(fr);
+			StringBuffer sb = new StringBuffer();
+			String line;
+			while ((line = br.readLine()) != null) {
+				if (line.contains("#")) {
+					continue;
+				}
+				sb.append(line);
+				sb.append("\n");
+			}
+			fr.close();
+			br.close();
+
+			resources = sb.toString().split("\n");
+			
 			sock = new DatagramSocket();								// Initializing the socket.
 			logger.log(Level.INFO, "Socket has been created.");		
 			logger.log(Level.INFO, "Trying to register with the BootStrap server with username given by user: " + uname);
@@ -76,6 +93,8 @@ public class unstructuredPeer {
 			lis = new peerListen(N_port, N_ip, RT, N_resources);        // Initializing the peerListen class.
 			new Thread(lis).start();									// Starting a new thread for listening.
 			logger.log(Level.INFO,"Listen thread started");
+			
+			lis.addResourcesAndHops(resources, hops);
 			
 			System.out.println("Sending join messages to the IP's received from Bootstrapper");
 			logger.log(Level.INFO, "Trying to join with the nodes provided by the BootStrap server.");
@@ -116,23 +135,27 @@ public class unstructuredPeer {
 					logger.log(Level.INFO, "External Query from the user received.");
 					int noFiles = 0;
 					String Files = "";
-					for(String file : N_resources) {
+					for(String file : N_resources.keySet()) {
 						if (file.contains(fileN)) {					  // Checking for file matches.
 							Files = Files + file + "\n";
 							noFiles++;						          // Counting the number of file matches.
 						}
-					} 
+					}
 					if (noFiles > 0) {
 						System.out.println("The queried file is already in this node.");
 						logger.log(Level.INFO,"The queried file is already in this node.");
 					}
 					else {
 						String query = "SER " + N_ip + " " + N_port + " " + fileN + " " + hops + " " + System.currentTimeMillis();
+						String querySave = "SER " + N_ip + " " + N_port + " " + fileN + " " + System.currentTimeMillis();
 						String queryMsg = String.format("%04d", query.length()) + " " + query;
-						System.out.println("Query message: " + queryMsg);
 						for (String Add : RT.keySet()) {
 							String[] sockAdd = Add.split(" ");
-							lis.send(queryMsg, sockAdd[0], Integer.parseInt(sockAdd[1]));    // 
+							lis.send(queryMsg, sockAdd[0], Integer.parseInt(sockAdd[1]));
+							if (!lis.searchMessage.contains(querySave)) {
+								lis.searchMessage.add(querySave);
+							}
+							
 							logger.log(Level.INFO,"The Search message is sent to all the nodes in the routing table.");
 						}
 					}
@@ -152,8 +175,8 @@ public class unstructuredPeer {
 				case "add":
 					//add resource code.
 					boolean mark = false;
-					for (int i = 0; i < N_resources.size(); i++) {
-						if(N_resources.get(i).toString().equals(fileN)) {
+					for (String file : N_resources.keySet()) {
+						if(file.equals(fileN)) {
 							mark = true;
 							continue;
 						}
@@ -163,16 +186,16 @@ public class unstructuredPeer {
 						System.out.println(N_resources);
 					}
 					else {
-						N_resources.add(fileN);
+						N_resources.put(fileN,"");
 					}
 					break;
 					
 				case "remove":
 					//delete resource code.
 					boolean Mark = false;
-					for (int i = 0; i < N_resources.size(); i++) {
-						if(N_resources.get(i).toString().equals(fileN)) {
-							Mark = true;
+					for (String file : N_resources.keySet()) {
+						if(file.equals(fileN)) {
+							mark = true;
 							continue;
 						}
 					}
@@ -190,7 +213,7 @@ public class unstructuredPeer {
 					try {
 						if (S[1].equals("resources")) {
 							System.out.println("Resources in this node:\n");
-							for (String file : N_resources) {
+							for (String file : N_resources.keySet()) {
 								System.out.println(file);
 							}
 						}
@@ -272,6 +295,7 @@ public class unstructuredPeer {
 			System.err.println("Error: Check the IP address. Only numbers less than 255 should be given in each field of IP.");
 			logger.log(Level.WARNING, "IOException Occured. "
 					+ "User assigned an invalid range of IP number.");
+			e.printStackTrace();
 			System.exit(1);
 		}
 		catch (ArrayIndexOutOfBoundsException e) {
@@ -475,24 +499,6 @@ public class unstructuredPeer {
 		try {
 			List<String> peerList = getIpList();
 			
-			File file  = new File("resources.txt");
-			FileReader fr = new FileReader(file);						
-			BufferedReader br = new BufferedReader(fr);
-			StringBuffer sb = new StringBuffer();
-			String line;
-			while ((line = br.readLine()) != null) {
-				if (line.contains("#")) {
-					continue;
-				}
-				sb.append(line);
-				sb.append("\n");
-			}
-			fr.close();
-			br.close();
-
-			resources = sb.toString().split("\n");
-			lis.addResourcesAndHops(resources, hops);
-			
 			int i = 0 ;
 			for (String sockAddress : peerList) {
 				String[] pList = sockAddress.split(":");				
@@ -506,7 +512,9 @@ public class unstructuredPeer {
 				}
 				int resourcesLength = sbuffer.length();
 				if (pList[0].equals(N_ip) && Integer.parseInt(pList[1]) == N_port) {
-					N_resources = subArr;
+					for ( String file : subArr) {
+						N_resources.put(file, "");
+					}
 				}
 				else {
 					System.out.println("sending resources");
@@ -593,6 +601,7 @@ public class unstructuredPeer {
 					logger.log(Level.INFO,"The queried file is already in this node.");
 				}
 				else {
+					System.out.println(searchKey);
 					String search = "SER " + N_ip + " " + N_port + " " + searchKey + " " + hops + " " + System.currentTimeMillis();
 					String msg = String.format("%04d", search.length()) + " " + search;
 					for (String key : RT.keySet()) {
