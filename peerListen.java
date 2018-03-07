@@ -1,10 +1,11 @@
 //package UnstructuredP2P;
+
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
-import java.io.IOException;
+import java.io.IOException;												// Importing the necessary classes.
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
@@ -17,11 +18,10 @@ import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.FileHandler;
 import java.util.logging.Level;
-import org.apache.commons.math3.distribution.ZipfDistribution;
 
 public class peerListen extends Thread{
 	
-	public static Logger logger = Logger.getLogger("ListenLog");
+	public static Logger logger = Logger.getLogger("ListenLog");		// Declaring the global variables.
 	public FileHandler log_file;
 	public static DatagramSocket Sock;
 	public ConcurrentHashMap<String, String> RTObj;
@@ -49,11 +49,12 @@ public class peerListen extends Thread{
 		hops = hop;
 	}
 	
-	public String[] rcv() {
+	public String[] rcv() {												// rcv method to only receive messages.
+		System.out.println("waiting for message");						// This allows to continuously listen.
 		byte[] rcve = new byte[1023];
 		DatagramPacket rcvpkt = new DatagramPacket(rcve, rcve.length);
 		
-		for (int i = 0; i < 3; i++) {
+		for (int i = 0; i < 3; i++) {									// Retrying again if any error occured.
 			try {
 				Sock.receive(rcvpkt);
 				logger.log(Level.INFO, "Packet received.");
@@ -71,9 +72,10 @@ public class peerListen extends Thread{
 		return reply;
 	}
 	
-	public void send(String Message, String ip, int port) {
+	public void send(String Message, String ip, int port) {          // rcv method to only receive messages.
+		System.out.println("Sending message");
 		InetAddress IP;
-		for (int i = 0; i < 3; i++) {
+		for (int i = 0; i < 3; i++) {								 // Retrying again if any error occured.
 			try {
 				IP = InetAddress.getByName(ip);
 				byte[] send = Message.getBytes();
@@ -90,17 +92,17 @@ public class peerListen extends Thread{
 		}
 	}
 	
-	public void run() {
+	public void run() {												// Listening Thread of peerListen.
 		System.out.println("Entered listening.");
 
 		try {
-			Sock = new DatagramSocket(N_port);
+			Sock = new DatagramSocket(N_port);						// binding the socket.
 			log_file = new FileHandler("Listen.Log");
 			SimpleFormatter formatter = new SimpleFormatter();
 		    log_file.setFormatter(formatter);
 			logger.addHandler(log_file);
 			logger.setUseParentHandlers(false);
-		} catch (SecurityException e2) {
+		} catch (SecurityException e2) {                            // Handling the required exceptions.
 			System.err.println("File Handler SecurityException.");
 			logger.log(Level.WARNING, "File Handler SecurityException.");
 			
@@ -112,10 +114,12 @@ public class peerListen extends Thread{
 		
 		while(true) {
 			while(true) {
-				try {
+				try {												// Receiving the messages sent by other nodes.
+					System.out.println("Listening thread started.");
+
 					String[] rcvReq = rcv();
 					String[] msg = rcvReq[0].split(" ");
-					if (Integer.parseInt(msg[0]) != rcvReq[0].length() - 5) {
+					if (Integer.parseInt(msg[0]) != rcvReq[0].length() - 5) { // Checking for a corrupted packet.
 						System.out.println("Corrupted message received. Going to listening mode.");
 						logger.log(Level.WARNING, "Corrupted message received. Going to listening mode.");
 						break;
@@ -125,45 +129,45 @@ public class peerListen extends Thread{
 					
 					switch (msg[1]) {
 					
-					case "JOIN":
+					case "JOIN":									// Catching the JOIN message sent by a node.
 						logger.log(Level.INFO, "Received Join message.");
 						RTObj.put(msg[2] + " " + msg[3],"");
 						if(RTObj.containsKey(msg[2] + " " + msg[3])) {
-							send_msg = "0008 JOINOK 0";
+							send_msg = "0008 JOINOK 0";				// Sending JOINOK message.
 							logger.log(Level.INFO, "Added node to Routing Table.");
 						}
-						else {
+						else {										// Sending an error message indicating JOIN failure.
 							send_msg = "0011 JOINOK 9999";
 							logger.log(Level.INFO, "Adding note to Routing table failed.");
 						}
 						send(send_msg,rcvReq[1],Integer.parseInt(rcvReq[2]));
 						break;
 						
-					case "LEAVE":
+					case "LEAVE":									// Catching the LEAVE message sent by a node.
 						logger.log(Level.INFO, "Received LEAVE message.");
 						RTObj.remove(msg[2] + " " + msg[3]);
 						if(!RTObj.containsKey(msg[2] + " " + msg[3])) {
-							send_msg = "0009 LEAVEOK 0";
+							send_msg = "0009 LEAVEOK 0";			// Sending LEAVEOK message.
 							logger.log(Level.INFO, "LEAVE successful.");
 						}
-						else {
+						else {										// Sending an error message indicating LEAVE failure.
 							send_msg = "0012 LEAVEOK 9999";
 							logger.log(Level.INFO, "LEAVE failed.");
 						}
 						send(send_msg,rcvReq[1],Integer.parseInt(rcvReq[2]));
 						break;
 						
-					case "SER":
+					case "SER":										// Catching the SEARCH message sent by a node.
 						//Query code
 						logger.log(Level.INFO, "Received SEARCH (SER) message.");
-						int gotHop = Integer.parseInt(msg[msg.length-2]);
-						
+						int gotHop = Integer.parseInt(msg[msg.length-2]);						
+						logger.log(Level.INFO, "Received SEARCH (SER) message.");
 						String saveMsg = "";
 						for (int i =0; i<=msg.length-3; i++) {
 							saveMsg = saveMsg + msg[i] + " " ;
 						}
 						saveMsg = saveMsg.trim() + " " + msg[msg.length-1];
-						if (searchMessage.contains(saveMsg)) {
+						if (searchMessage.contains(saveMsg)) {      // Checking for receiving the same search again. 
 							System.out.println("Search request already forwarded");
 							continue;
 						}
@@ -184,7 +188,7 @@ public class peerListen extends Thread{
 						for(String file : N_resources.keySet()) {
 							if (file.contains(fName)) {
 								Files = Files + file +"\n";
-								noFiles++;
+								noFiles++;							// Counting the file matches.
 							}
 						}
 						if (noFiles > 0) {
@@ -247,7 +251,7 @@ public class peerListen extends Thread{
 						}
 						
 						String[] foundFiles = foundFilesString.split("\n");
-						System.out.println("File(s) successfully found: \n" + foundFilesString + "at "+ IP + ":" + port +" in "+ (hops)+"-"+(foundHops) + " hop(s) in "+(timeNow-sendTime)+" milliseconds");;
+						System.out.println("File(s) successfully found: \n" + foundFilesString + "at "+ IP + ":" + port +" in "+ (hops)+"-"+(foundHops) + " hop(s) in "+(timeNow-sendTime)+" milliseconds");
 						queryFlag = true;
 						for (String FileName: foundFiles) {
 							innerMap = knownResourses.get(FileName);
