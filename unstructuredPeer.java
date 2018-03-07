@@ -34,10 +34,10 @@ public class unstructuredPeer {
 	public static ConcurrentHashMap<String, String> RT = new ConcurrentHashMap<String, String>();
 	public ConcurrentHashMap<String, ConcurrentHashMap<String, ArrayList<String>>> knownResourses;
 	public static String[] resources;
-	public static String uname ="Nodes21";
+	public static String uname;
 	public static ConcurrentHashMap<String, String> N_resources = new ConcurrentHashMap<String, String>();
 	public static peerListen lis;
-	public static int hops = 20;
+	public static int hops;
 	
 	public static void main(String[] args) {
 		try {
@@ -63,11 +63,28 @@ public class unstructuredPeer {
 			
 			Scanner sc = new Scanner(System.in);						// Catching the input from the Keyboard.
 			System.out.println("Give username of the network.");
-			//uname =sc.nextLine();
+			uname =sc.nextLine();
 			logger.log(Level.INFO, "Initiated username as " + uname);
 			System.out.println("Give the maximum number of hops.");
-			//hops = Integer.parseInt(sc.nextLine());
+			hops = Integer.parseInt(sc.nextLine());
 			logger.log(Level.INFO, "Number of maximum hops is " + hops);
+				
+			File File  = new File("resources.txt");					// Providing the file's name to be read.
+			FileReader fr = new FileReader(File);						
+			BufferedReader br = new BufferedReader(fr);
+			StringBuffer sb = new StringBuffer();
+			String line;
+			while ((line = br.readLine()) != null) {				// Reading the mentioned file.
+				if (line.contains("#")) {							// Avoiding the lines starting with #.
+					continue;
+				}
+				sb.append(line);
+				sb.append("\n");
+			}
+			fr.close();												// Closing the file.
+			br.close();												// Closing the file reader.
+
+			resources = sb.toString().split("\n");					// Splitting the resources.
 			
 			sock = new DatagramSocket();								// Initializing the socket.
 			logger.log(Level.INFO, "Socket has been created.");		
@@ -77,6 +94,8 @@ public class unstructuredPeer {
 			lis = new peerListen(N_port, N_ip, RT, N_resources);        // Initializing the peerListen class.
 			new Thread(lis).start();									// Starting a new thread for listening.
 			logger.log(Level.INFO,"Listen thread started");
+			
+			lis.addResourcesAndHops(resources, hops);
 			
 			System.out.println("Sending join messages to the IP's received from Bootstrapper");
 			logger.log(Level.INFO, "Trying to join with the nodes provided by the BootStrap server.");
@@ -91,8 +110,7 @@ public class unstructuredPeer {
 					fileN = fileN + S[i] + " ";
 				}
 				fileN = fileN.trim();
-				/*System.out.println("fileName" + fileName.length());
-				System.out.println("filename.trime(): " + fileName.trim().length());*/
+				
 				switch(S[0]){
 				case "leave":										   // Catching the LEAVE message.
 					logger.log(Level.INFO, "Trying to leave from BootStrap Server and nodes in the Routing Table.");
@@ -118,8 +136,8 @@ public class unstructuredPeer {
 					logger.log(Level.INFO, "External Query from the user received.");
 					int noFiles = 0;
 					String Files = "";
-					for(String file : N_resources) {
-						if (file.contains(fileN)) {				   // Checking for file matches.
+					for(String file : N_resources.keySet()) {
+						if (file.contains(fileN)) {					  // Checking for file matches.
 							Files = Files + file + "\n";
 							noFiles++;						           // Counting the number of file matches.
 						}
@@ -128,14 +146,16 @@ public class unstructuredPeer {
 						System.out.println("The queried file is already in this node.");
 						logger.log(Level.INFO,"The queried file is already in this node.");
 					}
-					else {											   // Sending the search message.
+					else {												// Sending the search message.
 						String query = "SER " + N_ip + " " + N_port + " " + fileN + " " + hops + " " + System.currentTimeMillis();
+						String querySave = "SER " + N_ip + " " + N_port + " " + fileN + " " + System.currentTimeMillis();
 						String queryMsg = String.format("%04d", query.length()) + " " + query;
-						System.out.println(queryMsg);
-						System.out.println("---------");
 						for (String Add : RT.keySet()) {
 							String[] sockAdd = Add.split(" ");
 							lis.send(queryMsg, sockAdd[0], Integer.parseInt(sockAdd[1]));
+							if (!lis.searchMessage.contains(querySave)) {
+								lis.searchMessage.add(querySave);
+							}
 							logger.log(Level.INFO,"The Search message is sent to all the nodes in the routing table.");
 						}
 					}
@@ -154,19 +174,46 @@ public class unstructuredPeer {
 					
 				case "add":												// Logic for Adding the given resource to the node.
 					//add resource code.
-					lis.add(fileN);
+					boolean mark = false;
+					for (String file : N_resources.keySet()) {
+						if(file.equals(fileN)) {
+							mark = true;
+							continue;
+						}
+					}
+					if (mark) {
+						System.out.println("Resource is already present in the node.");
+						System.out.println(N_resources);
+					}
+					else {
+						N_resources.put(fileN,"");
+					}
 					break;
 					
 				case "remove":											// Logic for Removing the given resource to the node.
 					//delete resource code.
-					lis.remove(fileN);
+					boolean Mark = false;
+					for (String file : N_resources.keySet()) {
+						if(file.equals(fileN)) {
+							mark = true;
+							continue;
+						}
+					}
+					if (Mark) {
+						N_resources.remove(fileN);
+						System.out.println("Resource is removed from the node.");
+					}
+					else {
+						System.out.println("Resource is not present in the node.");
+						System.out.println(N_resources);
+					}
 					break;
 					
 				case "print" :											// Printing Resources, Routing table and its size.
 					try {
 						if (S[1].equals("resources")) {					// Printing Resources if user requested resources.
 							System.out.println("Resources in this node:\n");
-							for (String file : N_resources) {
+							for (String file : N_resources.keySet()) {
 								System.out.println(file);
 							}
 						}
@@ -248,6 +295,7 @@ public class unstructuredPeer {
 			System.err.println("Error: Check the IP address. Only numbers less than 255 should be given in each field of IP.");
 			logger.log(Level.WARNING, "IOException Occured. "
 					+ "User assigned an invalid range of IP number.");
+			e.printStackTrace();
 			System.exit(1);
 		}
 		catch (ArrayIndexOutOfBoundsException e) {
@@ -450,25 +498,7 @@ public class unstructuredPeer {
 	public static void fileDist(int numOfRes) {						// Distributing the resources to all the nodes.
 		try {
 			List<String> peerList = getIpList();					// Acquiring the IPLIST from the BootStrap Server.
-			
-			File file  = new File("resources.txt");					// Providing the file's name to be read.
-			FileReader fr = new FileReader(file);						
-			BufferedReader br = new BufferedReader(fr);
-			StringBuffer sb = new StringBuffer();
-			String line;
-			while ((line = br.readLine()) != null) {				// Reading the mentioned file.
-				if (line.contains("#")) {							// Avoiding the lines starting with #.
-					continue;
-				}
-				sb.append(line);
-				sb.append("\n");
-			}
-			fr.close();												// Closing the file.
-			br.close();												// Closing the file reader.
 
-			resources = sb.toString().split("\n");					// Splitting the resources.
-			lis.addResourcesAndHops(resources, hops);
-			
 			int i = 0 ;
 			for (String sockAddress : peerList) {					// Sending the resources to all the nodes in the IPLIST.
 				String[] pList = sockAddress.split(":");				
@@ -482,7 +512,9 @@ public class unstructuredPeer {
 				}
 				int resourcesLength = sbuffer.length();			   // Checking for the Home node of file distribution.
 				if (pList[0].equals(N_ip) && Integer.parseInt(pList[1]) == N_port) {
-					N_resources = subArr;
+					for ( String file : subArr) {
+						N_resources.put(file, "");
+					}
 				}
 				else {
 					System.out.println("sending resources");
@@ -543,7 +575,55 @@ public class unstructuredPeer {
 		}
 		return peerList;
 	}
-																	// Method to delete network from BootSTrap Server.
+	
+	public static void queries(int numOfQueries, Double s) {  		// Method for Generating given number of queries with given zipf's distribution exponent.
+		try {
+			System.out.println(resources.length);
+			ZipfDistribution zf = new ZipfDistribution(resources.length, s);  // Initializing the zipf's distribution.
+			int searchKeyIndex;
+			String searchKey;
+			
+			for (int i = 0; i < numOfQueries; i++) {				// Generating the given number of queries.
+				searchKeyIndex = zf.sample() - 1;
+				
+				if (searchKeyIndex < 0) {
+					searchKeyIndex = 0;
+				}
+				
+				if (searchKeyIndex > resources.length) {
+					searchKeyIndex = resources.length - 1;
+				}
+				
+				searchKey = resources[searchKeyIndex];				// Selecting the file name randomly based on priority.
+				
+				if (N_resources.contains(searchKey)) {				// Checking the node itself for the resource.
+					System.out.println("The queried file is already in this node.");
+					logger.log(Level.INFO,"The queried file is already in this node.");
+				}
+				else {
+					System.out.println(searchKey);					// Creating the search message.
+					String search = "SER " + N_ip + " " + N_port + " " + searchKey + " " + hops + " " + System.currentTimeMillis();
+					String msg = String.format("%04d", search.length()) + " " + search;
+					for (String key : RT.keySet()) {
+						String[] sockAdd = key.split(" ");          // Sending the search message to all nodes in its RT.
+						lis.send(msg, sockAdd[0], Integer.parseInt(sockAdd[1]));
+						logger.log(Level.INFO, "The Search message is sent to all the nodes in the routing table.");
+					}
+				}
+				while (true) {
+					
+					
+					if (lis.queryFlag){
+						break;						
+					}
+				}
+			}
+		} catch (NumberFormatException e) {
+			System.err.println("Error: Got non-integer port number.");
+			logger.log(Level.WARNING, "Error: Got non-integer port number.");
+		}
+	}
+	
 	public static void delUname(String uname) throws IOException {
 		
 		String delUname = "DEL UNAME " + uname;						// Creating the DEL UNAME command.
@@ -563,49 +643,5 @@ public class unstructuredPeer {
 		}
 	}
 	
-	public static void queries(int numOfQueries, Double s) {     			 // Method for Generating given number of queries with given zipf's distribution exponent.
-		try {
-			System.out.println(resources.length);
-			ZipfDistribution zf = new ZipfDistribution(resources.length, s); // Initializing the zipf's distribution.
-			int searchKeyIndex;
-			String searchKey;
-			
-			for (int i = 0; i < numOfQueries; i++) {				// Generating the given number of queries.
-				searchKeyIndex = zf.sample() - 1;
-				
-				if (searchKeyIndex < 0) {
-					searchKeyIndex = 0;
-				}
-				
-				if (searchKeyIndex > resources.length) {
-					searchKeyIndex = resources.length - 1;
-				}
-				searchKey = resources[searchKeyIndex];				// Selecting the file name randomly based on priority.
-				
-				if (N_resources.contains(searchKey)) {				// Checking the node itself for the resource.
-					System.out.println("The queried file is already in this node.");
-					logger.log(Level.INFO,"The queried file is already in this node.");
-				}
-				else {												// Creating the search message.
-					System.out.println("Search Message: ==================");
-					String search = "SER " + N_ip + " " + N_port + " " + searchKey + " " + hops + " " + System.currentTimeMillis();
-					String msg = String.format("%04d", search.length()) + " " + search;
-					for (String key : RT.keySet()) {
-						String[] sockAdd = key.split(" ");			// Sending the search message to all nodes in its RT.
-						lis.send(msg, sockAdd[0], Integer.parseInt(sockAdd[1]));
-						logger.log(Level.INFO, "The Search message is sent to all the nodes in the routing table.");
-					}
-				}
-				
-				while (true) {
-					if (lis.queryFlag){
-						break;						
-					}
-				}
-			}
-		} catch (NumberFormatException e) {
-			System.err.println("Error: Got non-integer port number.");
-			logger.log(Level.WARNING, "Error: Got non-integer port number.");
-		}
-	}
+	
 }

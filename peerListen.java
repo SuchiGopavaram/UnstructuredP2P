@@ -1,6 +1,6 @@
 package UnstructuredP2P;
 
-import java.io.IOException;												// Importing the neccessary classes.
+import java.io.IOException;												// Importing the necessary classes.
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
@@ -12,7 +12,6 @@ import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.FileHandler;
 import java.util.logging.Level;
-//import org.apache.commons.math3.distribution.ZipfDistribution;
 
 public class peerListen extends Thread{
 	
@@ -24,9 +23,10 @@ public class peerListen extends Thread{
 	public String N_ip;
 	public ConcurrentHashMap<String, ConcurrentHashMap<String, ArrayList<String>>> knownResourses = new ConcurrentHashMap<String, ConcurrentHashMap<String, ArrayList<String>>>();
 	public ConcurrentHashMap<String, ArrayList<String>> innerMap;
-	public ConcurrentHashMap<String, String> N_resources = new ConcurrentHashMap<String, String>();
+	public ConcurrentHashMap<String, String> N_resources;
 	public String[] resources;
 	public int hops;
+	public List<String> searchMessage = new ArrayList<String>();
 	public boolean queryFlag;
 	
 	public peerListen(int N_Port, String N_IP, ConcurrentHashMap<String, String> table, ConcurrentHashMap<String, String> resources) {
@@ -62,7 +62,6 @@ public class peerListen extends Thread{
 		String reply[] = {new String(rcvpkt.getData(),0,rcvpkt.getLength()),
 				rcvpkt.getAddress().toString().substring(1, rcvpkt.getAddress().toString().length()),
 					Integer.toString(rcvpkt.getPort())};
-		System.out.println(reply[0]+"||"+reply[1]+"||"+reply[2]);
 		return reply;
 	}
 	
@@ -86,8 +85,6 @@ public class peerListen extends Thread{
 			}
 		}
 	}
-
-	
 	
 	public void run() {												// Listening Thread of peerListen.
 		System.out.println("Entered listening.");
@@ -104,7 +101,6 @@ public class peerListen extends Thread{
 			logger.log(Level.WARNING, "File Handler SecurityException.");
 			
 		} catch (IOException e2) {
-			System.err.println(e2);
 			System.err.println("IOException Occured. Socket Error.");
 			logger.log(Level.WARNING, "IOException Occured. Socket Error.");
 			
@@ -113,6 +109,7 @@ public class peerListen extends Thread{
 		while(true) {
 			while(true) {
 				try {												// Receiving the messages sent by other nodes.
+					System.out.println("Listening thread started.");
 
 					String[] rcvReq = rcv();
 					String[] msg = rcvReq[0].split(" ");
@@ -156,27 +153,33 @@ public class peerListen extends Thread{
 						
 					case "SER":										// Catching the SEARCH message sent by a node.
 						//Query code
-						List<String> searchMessage = new ArrayList<String>();
-						
-						if (searchMessage.contains(rcvReq[0])) {	// Checking for receiving the same search again. 
-							continue;
-						}
-						
 						logger.log(Level.INFO, "Received SEARCH (SER) message.");
-						System.out.println(msg[5]);
-						if (Integer.parseInt(msg[msg.length - 2]) <= 0) { // Checking for a zero hop count.
+						int gotHop = Integer.parseInt(msg[msg.length-2]);						
+						logger.log(Level.INFO, "Received SEARCH (SER) message.");
+						String saveMsg = "";
+						for (int i =0; i<=msg.length-3; i++) {
+							saveMsg = saveMsg + msg[i] + " " ;
+						}
+						saveMsg = saveMsg.trim() + " " + msg[msg.length-1];
+						if (searchMessage.contains(saveMsg)) {      // Checking for receiving the same search again. 
+							System.out.println("Search request already forwarded");
 							continue;
 						}
 						
+						if (Integer.parseInt(msg[msg.length-2]) <= 0) {
+							System.out.println("Hop count reached. Killing packet.");
+							continue;
+						}
+											
 						int noFiles = 0;
 						String Files = "";
 						String fName = "";
-						for (int i = 4; i <= msg.length - 3; i++) {
+						for (int i = 4; i<=msg.length-3; i++) {
 							fName = fName + msg[i] + " ";
 						}
 						fName = fName.trim();
-						System.out.println("fName: " + fName);
-						for(String file : N_resources) {
+						
+						for(String file : N_resources.keySet()) {
 							if (file.contains(fName)) {
 								Files = Files + file +"\n";
 								noFiles++;							// Counting the file matches.
@@ -185,7 +188,7 @@ public class peerListen extends Thread{
 						if (noFiles > 0) {
 							System.out.println("Match(es) for the queried file found in the node.");
 							logger.log(Level.INFO,"Match(es) for the queried file found in the node.");
-							send_msg = "SEROK " + noFiles + " " + N_ip + " " + N_port + " " + Integer.toString(Integer.parseInt(msg[msg.length - 2])-1) + " "  + msg[msg.length - 1] + " " + Files;
+							send_msg = "SEROK " + noFiles + " " + N_ip + " " + N_port + " " + Integer.toString(gotHop-1) + " "  + msg[msg.length-1] + " " + Files;
 							send_msg = String.format("%04d",send_msg.length()) + " " + send_msg;
 							send(send_msg, msg[2], Integer.parseInt(msg[3]));
 							logger.log(Level.INFO,"The SEROK message with the found files is sent to the query node.");
@@ -193,11 +196,11 @@ public class peerListen extends Thread{
 						else {
 							logger.log(Level.INFO, "The queried file is not found in this node. Forwarding the search message to"
 									+ " the nodes in this node's routing table.");
-							System.out.println("===="+ msg.length);
-							for (int i = 1; i < msg.length - 3;i++) {
+							for (int i = 1; i <= msg.length - 3;i++) {
 								send_msg = send_msg + msg[i] + " ";
 							}
-							send_msg = send_msg + " " + Integer.toString(Integer.parseInt(msg[msg.length-2]) - 1) + " " + msg[msg.length-1];
+							send_msg = send_msg.trim();
+							send_msg = send_msg + " " + Integer.toString(gotHop - 1) + " " + msg[msg.length-1];
 							send_msg = String.format("%04d",send_msg.length()) + " " +send_msg;
 							for (String key: RTObj.keySet()) {
 								String[] keyArr = key.split(" " );
@@ -207,7 +210,9 @@ public class peerListen extends Thread{
 								send(send_msg, keyArr[0], Integer.parseInt(keyArr[1]));
 							}
 						}
-						searchMessage.add(rcvReq[0]);
+						if (!searchMessage.contains(saveMsg)) {
+							searchMessage.add(saveMsg);
+						}
 						break;
 						
 					case "SEROK":
@@ -223,7 +228,7 @@ public class peerListen extends Thread{
 						ArrayList<String> result = new ArrayList<String>();
 						result.add(msg[5]);
 						String[] foundFiles = foundFilesString.split("\n");
-						System.out.println("Found\n" + foundFilesString + "at "+ IP + ":" + port +" in "+ (hops)+"-"+(foundHops) + " hop(s) in "+(timeNow-sendTime) + " milliseconds");;
+						System.out.println("File(s) successfully found: \n" + foundFilesString + "at "+ IP + ":" + port +" in "+ (hops)+"-"+(foundHops) + " hop(s) in "+(timeNow-sendTime)+" milliseconds");
 						queryFlag = true;
 						for (String FileName: foundFiles) {
 							innerMap = knownResourses.get(FileName);
@@ -237,7 +242,7 @@ public class peerListen extends Thread{
 						String filesLine = rcvReq[0].substring(15);
 						String[] filesList = filesLine.split("\n");
 						for (String file : filesList) {
-							N_resources.add(file);
+							N_resources.put(file,"");
 						}
 						break;
 						
@@ -260,25 +265,6 @@ public class peerListen extends Thread{
 			}
 			logger.log(Level.INFO, "Closing the LOG file.");
 			log_file.close();
-		}
-	}
-	
-	public void add(String fileName) {
-		if (N_resources.contains(fileName)) {						// Checking if resource is present in the node.
-			System.out.println("Resource is already present in the node.");
-		}
-		else {														// Adding the resource if it was absent in the node.
-			System.out.println("Resource has been added to the node.");
-			N_resources.add(fileName);
-		}
-	}
-	
-	public void remove(String fileName) {
-		if (N_resources.contains(fileName)) {						// Checking if resource is present in the node.
-			N_resources.remove(fileName);
-		}
-		else {														// Removing the resource if it was present in the node.
-			System.out.println("Resource is not present in the node.");
 		}
 	}
 }
