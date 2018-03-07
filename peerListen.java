@@ -1,8 +1,14 @@
 //package UnstructuredP2P;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.sql.Timestamp;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
 import java.util.ArrayList;
@@ -28,6 +34,8 @@ public class peerListen extends Thread{
 	public int hops;
 	public List<String> searchMessage = new ArrayList<String>();
 	public boolean queryFlag;
+	public int queriesForwarded = 0;
+	public int queriesAnswered = 0;
 	
 	public peerListen(int N_Port, String N_IP, ConcurrentHashMap<String, String> table, ConcurrentHashMap<String, String> resources) {
 		N_port = N_Port;
@@ -48,7 +56,6 @@ public class peerListen extends Thread{
 		for (int i = 0; i < 3; i++) {
 			try {
 				Sock.receive(rcvpkt);
-				System.out.println("Packet received.");
 				logger.log(Level.INFO, "Packet received.");
 				break;
 			} catch (IOException e) {
@@ -72,7 +79,6 @@ public class peerListen extends Thread{
 				byte[] send = Message.getBytes();
 				DatagramPacket sndpkt = new DatagramPacket(send, send.length, IP, port);
 				Sock.send(sndpkt);
-				System.out.println("Packet Sent.");
 				logger.log(Level.INFO, "Packet sent.");
 				break;
 			} catch (IOException e) {
@@ -107,7 +113,6 @@ public class peerListen extends Thread{
 		while(true) {
 			while(true) {
 				try {
-					System.out.println("Listening thread started.");
 					String[] rcvReq = rcv();
 					String[] msg = rcvReq[0].split(" ");
 					if (Integer.parseInt(msg[0]) != rcvReq[0].length() - 5) {
@@ -189,6 +194,7 @@ public class peerListen extends Thread{
 							send_msg = String.format("%04d",send_msg.length()) + " " + send_msg;
 							send(send_msg, msg[2], Integer.parseInt(msg[3]));
 							logger.log(Level.INFO,"The SEROK message with the found files is sent to the query node.");
+							queriesAnswered++;
 						}
 						else {
 							logger.log(Level.INFO, "The queried file is not found in this node. Forwarding the search message to"
@@ -206,6 +212,7 @@ public class peerListen extends Thread{
 								}
 								send(send_msg, keyArr[0], Integer.parseInt(keyArr[1]));
 							}
+							queriesForwarded++;
 						}
 						if (!searchMessage.contains(saveMsg)) {
 							searchMessage.add(saveMsg);
@@ -215,15 +222,30 @@ public class peerListen extends Thread{
 					case "SEROK":
 						int noOfFilesFound = Integer.parseInt(msg[2]);
 						String IP = msg[3];
+						Timestamp time = new Timestamp(System.currentTimeMillis());
 						int port = Integer.parseInt(msg[4]);
 						String SockAdd = IP+":"+port;
 						int foundHops = Integer.parseInt(msg[5]);
 						double sendTime = Double.parseDouble(msg[6]);
 						double timeNow = System.currentTimeMillis();
+						double netTime = timeNow - sendTime;
 						int headerLen = msg[0].length() + msg[1].length() + msg[2].length() + msg[3].length() + msg[4].length() + msg[5].length() + msg[6].length();
 						String foundFilesString = rcvReq[0].substring(headerLen + 7);
 						ArrayList<String> result = new ArrayList<String>();
-						result.add(msg[5]);
+						int netHops = hops - foundHops;
+						result.add(Integer.toString(netHops));
+						String write = foundFilesString + "\t" + Integer.toString(netHops) + "\t" + Double.toString(netTime) + "\t" + time + "\n";
+						
+						BufferedWriter out = null;
+						try {
+							FileWriter fr = new FileWriter("results.txt",true);						
+							out = new BufferedWriter(fr);
+							out.write(write);
+							out.close();
+						} catch (IOException e) {
+							System.out.println("results writing IO exception");
+						}
+						
 						String[] foundFiles = foundFilesString.split("\n");
 						System.out.println("File(s) successfully found: \n" + foundFilesString + "at "+ IP + ":" + port +" in "+ (hops)+"-"+(foundHops) + " hop(s) in "+(timeNow-sendTime)+" milliseconds");;
 						queryFlag = true;

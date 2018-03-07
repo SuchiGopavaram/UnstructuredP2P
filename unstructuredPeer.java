@@ -33,10 +33,10 @@ public class unstructuredPeer {
 	public static ConcurrentHashMap<String, String> RT = new ConcurrentHashMap<String, String>();
 	public ConcurrentHashMap<String, ConcurrentHashMap<String, ArrayList<String>>> knownResourses;
 	public static String[] resources;
-	public static String uname ="Nodes20";
+	public static String uname;
 	public static ConcurrentHashMap<String, String> N_resources = new ConcurrentHashMap<String, String>();
 	public static peerListen lis;
-	public static int hops = 20;
+	public static int hops;
 	
 	public static void main(String[] args) {
 		try {
@@ -62,10 +62,10 @@ public class unstructuredPeer {
 			
 			Scanner sc = new Scanner(System.in);						// Catching the input from the Keyboard.
 			System.out.println("Give username of the network.");
-			//uname =sc.nextLine();
+			uname =sc.nextLine();
 			logger.log(Level.INFO, "Initiated username as " + uname);
 			System.out.println("Give the maximum number of hops.");
-			//hops = Integer.parseInt(sc.nextLine());
+			hops = Integer.parseInt(sc.nextLine());
 			logger.log(Level.INFO, "Number of maximum hops is " + hops);
 			
 			File Resourcefile  = new File("resources.txt");
@@ -172,6 +172,14 @@ public class unstructuredPeer {
 					
 					break;
 					
+				case "answered":
+					System.out.println(lis.queriesAnswered);
+					break;
+					
+				case "forwarded":
+					System.out.println(lis.queriesForwarded);
+					break;
+					
 				case "add":
 					//add resource code.
 					boolean mark = false;
@@ -268,16 +276,19 @@ public class unstructuredPeer {
 					
 				default:
 					System.out.println("Usage: \n"
-							+ "add <Resource name>:				Adds resource to the node.\n"
-							+ "remove <Resource name>:			Deletes resource from the node.\n"
-							+ "leave:							Leaves the network.\n"
-							+ "DEL UNAME <username>:			Deletes the network <username> from Bootstrap Server.\n"
-							+ "print routing:					Prints routing table.\n"
-							+ "print routing table size:		Prints the size of routing table\n"
-							+ "print resources:					Prints resources in this node.\n"
-							+ "distribute <resources per node>:	Distributes the resources.txt contents to all the nodes in the network.\n"
-							+ "query: 							\n"
-							+ "exit: 							Exits the program.\n"
+							+ "add <Resource name>:                     Adds resource to the node.\n"
+							+ "remove <Resource name>:                  Deletes resource from the node.\n"
+							+ "leave:                                   Leaves the network.\n"
+							+ "DEL UNAME <username>:                    Deletes the network <username> from Bootstrap Server.\n"
+							+ "print routing:                           Prints routing table.\n"
+							+ "print routing table size:                Prints the size of routing table\n"
+							+ "print resources:                         Prints resources in this node.\n"
+							+ "answered:                                Gives the queries ansered till now.\n"
+							+ "forwarded:                               Gives the number of queries forwarded till now.\n"
+							+ "distribute <resources per node>:         Distributes the resources.txt contents to all the nodes in the network.\n"
+							+ "query <(part of)file name>:              Queries the given file name or part of the file name\n"
+							+ "queries <no of qeries> <zipfs exponent>: Generates the number of queries given wit hthat Zipf's exponent.\n"
+							+ "exit:                                    Exits the program.\n"
 							//add the added features here
 							);
 					break;
