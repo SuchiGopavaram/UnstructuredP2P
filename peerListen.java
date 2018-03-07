@@ -1,5 +1,6 @@
-//package UnstructuredP2P;
-import java.io.IOException;
+package UnstructuredP2P;
+
+import java.io.IOException;												// Importing the neccessary classes.
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
@@ -11,11 +12,11 @@ import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.FileHandler;
 import java.util.logging.Level;
-import org.apache.commons.math3.distribution.ZipfDistribution;
+//import org.apache.commons.math3.distribution.ZipfDistribution;
 
 public class peerListen extends Thread{
 	
-	public static Logger logger = Logger.getLogger("ListenLog");
+	public static Logger logger = Logger.getLogger("ListenLog");		// Declaring the global variables.
 	public FileHandler log_file;
 	public static DatagramSocket Sock;
 	public ConcurrentHashMap<String, String> RTObj;
@@ -23,12 +24,12 @@ public class peerListen extends Thread{
 	public String N_ip;
 	public ConcurrentHashMap<String, ConcurrentHashMap<String, ArrayList<String>>> knownResourses = new ConcurrentHashMap<String, ConcurrentHashMap<String, ArrayList<String>>>();
 	public ConcurrentHashMap<String, ArrayList<String>> innerMap;
-	public List<String> N_resources = Collections.synchronizedList(new ArrayList<String>());
+	public ConcurrentHashMap<String, String> N_resources = new ConcurrentHashMap<String, String>();
 	public String[] resources;
 	public int hops;
 	public boolean queryFlag;
 	
-	public peerListen(int N_Port, String N_IP, ConcurrentHashMap<String, String> table, List<String> resources) {
+	public peerListen(int N_Port, String N_IP, ConcurrentHashMap<String, String> table, ConcurrentHashMap<String, String> resources) {
 		N_port = N_Port;
 		N_ip = N_IP;
 		RTObj = table;
@@ -40,12 +41,12 @@ public class peerListen extends Thread{
 		hops = hop;
 	}
 	
-	public String[] rcv() {
-		System.out.println("waiting for message");
+	public String[] rcv() {												// rcv method to only receive messages.
+		System.out.println("waiting for message");						// This allows to continuously listen.
 		byte[] rcve = new byte[1023];
 		DatagramPacket rcvpkt = new DatagramPacket(rcve, rcve.length);
 		
-		for (int i = 0; i < 3; i++) {
+		for (int i = 0; i < 3; i++) {									// Retrying again if any error occured.
 			try {
 				Sock.receive(rcvpkt);
 				System.out.println("Packet received.");
@@ -65,10 +66,10 @@ public class peerListen extends Thread{
 		return reply;
 	}
 	
-	public void send(String Message, String ip, int port) {
+	public void send(String Message, String ip, int port) {          // rcv method to only receive messages.
 		System.out.println("Sending message");
 		InetAddress IP;
-		for (int i = 0; i < 3; i++) {
+		for (int i = 0; i < 3; i++) {								 // Retrying again if any error occured.
 			try {
 				IP = InetAddress.getByName(ip);
 				byte[] send = Message.getBytes();
@@ -86,64 +87,19 @@ public class peerListen extends Thread{
 		}
 	}
 
-	public void queries(int numOfQueries, Double s) {
-		try {
-			System.out.println(resources.length);
-			ZipfDistribution zf = new ZipfDistribution(resources.length, s);
-			int searchKeyIndex;
-			String searchKey;
-			
-			for (int i = 0; i < numOfQueries; i++) {
-				searchKeyIndex = zf.sample() - 1;
-				
-				if (searchKeyIndex < 0) {
-					searchKeyIndex = 0;
-				}
-				
-				if (searchKeyIndex > resources.length) {
-					searchKeyIndex = resources.length - 1;
-				}
-				
-				searchKey = resources[searchKeyIndex];
-				
-				if (N_resources.contains(searchKey)) {
-					System.out.println("The queried file is already in this node.");
-					logger.log(Level.INFO,"The queried file is already in this node.");
-				}
-				else {
-					String search = "SER" + N_ip + " " + N_port + " " + searchKey + " " + hops + " " + System.currentTimeMillis();
-					String msg = String.format("%04d", search.length()) + " " + search;
-					for (String key : RTObj.keySet()) {
-						String[] sockAdd = key.split(" ");
-						send(msg, sockAdd[0], Integer.parseInt(sockAdd[1]));
-						logger.log(Level.INFO, "The Search message is sent to all the nodes in the routing table.");
-					}
-				}
-				while (true) {
-					
-					
-					if (queryFlag){
-						break;						
-					}
-				}
-			}
-		} catch (NumberFormatException e) {
-			System.err.println("Error: Got non-integer port number.");
-			logger.log(Level.WARNING, "Error: Got non-integer port number.");
-		}
-	}
 	
-	public void run() {
+	
+	public void run() {												// Listening Thread of peerListen.
 		System.out.println("Entered listening.");
 
 		try {
-			Sock = new DatagramSocket(N_port);
+			Sock = new DatagramSocket(N_port);						// binding the socket.
 			log_file = new FileHandler("Listen.Log");
 			SimpleFormatter formatter = new SimpleFormatter();
 		    log_file.setFormatter(formatter);
 			logger.addHandler(log_file);
 			logger.setUseParentHandlers(false);
-		} catch (SecurityException e2) {
+		} catch (SecurityException e2) {                            // Handling the required exceptions.
 			System.err.println("File Handler SecurityException.");
 			logger.log(Level.WARNING, "File Handler SecurityException.");
 			
@@ -156,11 +112,11 @@ public class peerListen extends Thread{
 		
 		while(true) {
 			while(true) {
-				try {
+				try {												// Receiving the messages sent by other nodes.
 
 					String[] rcvReq = rcv();
 					String[] msg = rcvReq[0].split(" ");
-					if (Integer.parseInt(msg[0]) != rcvReq[0].length() - 5) {
+					if (Integer.parseInt(msg[0]) != rcvReq[0].length() - 5) { // Checking for a corrupted packet.
 						System.out.println("Corrupted message received. Going to listening mode.");
 						logger.log(Level.WARNING, "Corrupted message received. Going to listening mode.");
 						break;
@@ -170,59 +126,66 @@ public class peerListen extends Thread{
 					
 					switch (msg[1]) {
 					
-					case "JOIN":
+					case "JOIN":									// Catching the JOIN message sent by a node.
 						logger.log(Level.INFO, "Received Join message.");
 						RTObj.put(msg[2] + " " + msg[3],"");
 						if(RTObj.containsKey(msg[2] + " " + msg[3])) {
-							send_msg = "0008 JOINOK 0";
+							send_msg = "0008 JOINOK 0";				// Sending JOINOK message.
 							logger.log(Level.INFO, "Added node to Routing Table.");
 						}
-						else {
+						else {										// Sending an error message indicating JOIN failure.
 							send_msg = "0011 JOINOK 9999";
 							logger.log(Level.INFO, "Adding note to Routing table failed.");
 						}
 						send(send_msg,rcvReq[1],Integer.parseInt(rcvReq[2]));
 						break;
 						
-					case "LEAVE":
+					case "LEAVE":									// Catching the LEAVE message sent by a node.
 						logger.log(Level.INFO, "Received LEAVE message.");
 						RTObj.remove(msg[2] + " " + msg[3]);
 						if(!RTObj.containsKey(msg[2] + " " + msg[3])) {
-							send_msg = "0009 LEAVEOK 0";
+							send_msg = "0009 LEAVEOK 0";			// Sending LEAVEOK message.
 							logger.log(Level.INFO, "LEAVE successful.");
 						}
-						else {
+						else {										// Sending an error message indicating LEAVE failure.
 							send_msg = "0012 LEAVEOK 9999";
 							logger.log(Level.INFO, "LEAVE failed.");
 						}
 						send(send_msg,rcvReq[1],Integer.parseInt(rcvReq[2]));
 						break;
 						
-					case "SER":
+					case "SER":										// Catching the SEARCH message sent by a node.
 						//Query code
 						List<String> searchMessage = new ArrayList<String>();
 						
-						if (searchMessage.contains(rcvReq[0])) {
+						if (searchMessage.contains(rcvReq[0])) {	// Checking for receiving the same search again. 
 							continue;
 						}
 						
 						logger.log(Level.INFO, "Received SEARCH (SER) message.");
-						if (Integer.parseInt(msg[5]) <= 0) {
+						System.out.println(msg[5]);
+						if (Integer.parseInt(msg[msg.length - 2]) <= 0) { // Checking for a zero hop count.
 							continue;
 						}
 						
 						int noFiles = 0;
-						String Files = " ";
+						String Files = "";
+						String fName = "";
+						for (int i = 4; i <= msg.length - 3; i++) {
+							fName = fName + msg[i] + " ";
+						}
+						fName = fName.trim();
+						System.out.println("fName: " + fName);
 						for(String file : N_resources) {
-							if (file.contains(msg[4])) {
+							if (file.contains(fName)) {
 								Files = Files + file +"\n";
-								noFiles++;
+								noFiles++;							// Counting the file matches.
 							}
 						}
 						if (noFiles > 0) {
 							System.out.println("Match(es) for the queried file found in the node.");
 							logger.log(Level.INFO,"Match(es) for the queried file found in the node.");
-							send_msg = "SEROK " + noFiles + " " + N_ip + " " + N_port + " " + Integer.toString(Integer.parseInt(msg[5])-1) + " "  + msg[6] + " " + Files;
+							send_msg = "SEROK " + noFiles + " " + N_ip + " " + N_port + " " + Integer.toString(Integer.parseInt(msg[msg.length - 2])-1) + " "  + msg[msg.length - 1] + " " + Files;
 							send_msg = String.format("%04d",send_msg.length()) + " " + send_msg;
 							send(send_msg, msg[2], Integer.parseInt(msg[3]));
 							logger.log(Level.INFO,"The SEROK message with the found files is sent to the query node.");
@@ -260,7 +223,7 @@ public class peerListen extends Thread{
 						ArrayList<String> result = new ArrayList<String>();
 						result.add(msg[5]);
 						String[] foundFiles = foundFilesString.split("\n");
-						System.out.println("Found \n" + foundFilesString + "at "+ IP + ":" + port +" in "+ (hops)+"-"+(foundHops) + " hop(s) in "+(timeNow-sendTime)+" milliseconds");;
+						System.out.println("Found\n" + foundFilesString + "at "+ IP + ":" + port +" in "+ (hops)+"-"+(foundHops) + " hop(s) in "+(timeNow-sendTime) + " milliseconds");;
 						queryFlag = true;
 						for (String FileName: foundFiles) {
 							innerMap = knownResourses.get(FileName);
@@ -297,6 +260,25 @@ public class peerListen extends Thread{
 			}
 			logger.log(Level.INFO, "Closing the LOG file.");
 			log_file.close();
+		}
+	}
+	
+	public void add(String fileName) {
+		if (N_resources.contains(fileName)) {						// Checking if resource is present in the node.
+			System.out.println("Resource is already present in the node.");
+		}
+		else {														// Adding the resource if it was absent in the node.
+			System.out.println("Resource has been added to the node.");
+			N_resources.add(fileName);
+		}
+	}
+	
+	public void remove(String fileName) {
+		if (N_resources.contains(fileName)) {						// Checking if resource is present in the node.
+			N_resources.remove(fileName);
+		}
+		else {														// Removing the resource if it was present in the node.
+			System.out.println("Resource is not present in the node.");
 		}
 	}
 }
