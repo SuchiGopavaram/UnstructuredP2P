@@ -16,6 +16,9 @@ import java.util.Scanner;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
+
+import org.apache.commons.math3.distribution.ZipfDistribution;
+
 import java.util.logging.FileHandler;
 import java.util.logging.Level;
 
@@ -30,7 +33,7 @@ public class unstructuredPeer {
 	public static ConcurrentHashMap<String, String> RT = new ConcurrentHashMap<String, String>();
 	public ConcurrentHashMap<String, ConcurrentHashMap<String, ArrayList<String>>> knownResourses;
 	public static String[] resources;
-	public static String uname ="Nodes21";
+	public static String uname ="Nodes20";
 	public static List<String> N_resources = Collections.synchronizedList(new ArrayList<String>());
 	public static peerListen lis;
 	public static int hops = 20;
@@ -86,7 +89,7 @@ public class unstructuredPeer {
 				for (int i = 1; i < S.length; i++) {
 					fileN = fileN + S[i] + " ";
 				}
-				String fileName = fileN.toString();
+				fileN = fileN.trim();
 				
 				switch(S[0]){
 				case "leave":										   // Catching the LEAVE message.
@@ -114,7 +117,7 @@ public class unstructuredPeer {
 					int noFiles = 0;
 					String Files = "";
 					for(String file : N_resources) {
-						if (file.contains(S[1])) {					  // Checking for file matches.
+						if (file.contains(fileN)) {					  // Checking for file matches.
 							Files = Files + file + "\n";
 							noFiles++;						          // Counting the number of file matches.
 						}
@@ -124,10 +127,9 @@ public class unstructuredPeer {
 						logger.log(Level.INFO,"The queried file is already in this node.");
 					}
 					else {
-						String query = "SER " + N_ip + " " + N_port + " " + S[1] + " " + hops + " " + System.currentTimeMillis();
+						String query = "SER " + N_ip + " " + N_port + " " + fileN + " " + hops + " " + System.currentTimeMillis();
 						String queryMsg = String.format("%04d", query.length()) + " " + query;
-						System.out.println(queryMsg);
-						System.out.println("---------");
+						System.out.println("Query message: " + queryMsg);
 						for (String Add : RT.keySet()) {
 							String[] sockAdd = Add.split(" ");
 							lis.send(queryMsg, sockAdd[0], Integer.parseInt(sockAdd[1]));    // 
@@ -138,7 +140,7 @@ public class unstructuredPeer {
 					
 				case "queries":
 					try {
-						lis.queries(Integer.parseInt(S[1]), Double.parseDouble(S[2]));
+						queries(Integer.parseInt(S[1]), Double.parseDouble(S[2]));
 					} catch (ArrayIndexOutOfBoundsException e) {
 						System.out.println("Usage:\n"
 								+ "queries <no of queries> <Zipf's exponent>: "
@@ -151,7 +153,7 @@ public class unstructuredPeer {
 					//add resource code.
 					boolean mark = false;
 					for (int i = 0; i < N_resources.size(); i++) {
-						if(N_resources.get(i).toString().equals(fileName)) {
+						if(N_resources.get(i).toString().equals(fileN)) {
 							mark = true;
 							continue;
 						}
@@ -161,7 +163,7 @@ public class unstructuredPeer {
 						System.out.println(N_resources);
 					}
 					else {
-						N_resources.add(fileName);
+						N_resources.add(fileN);
 					}
 					break;
 					
@@ -169,13 +171,13 @@ public class unstructuredPeer {
 					//delete resource code.
 					boolean Mark = false;
 					for (int i = 0; i < N_resources.size(); i++) {
-						if(N_resources.get(i).toString().equals(fileName)) {
+						if(N_resources.get(i).toString().equals(fileN)) {
 							Mark = true;
 							continue;
 						}
 					}
 					if (Mark) {
-						N_resources.remove(fileName);
+						N_resources.remove(fileN);
 						System.out.println("Resource is removed from the node.");
 					}
 					else {
@@ -564,6 +566,53 @@ public class unstructuredPeer {
 			}
 		}
 		return peerList;
+	}
+	
+	public static void queries(int numOfQueries, Double s) {
+		try {
+			System.out.println(resources.length);
+			ZipfDistribution zf = new ZipfDistribution(resources.length, s);
+			int searchKeyIndex;
+			String searchKey;
+			
+			for (int i = 0; i < numOfQueries; i++) {
+				searchKeyIndex = zf.sample() - 1;
+				
+				if (searchKeyIndex < 0) {
+					searchKeyIndex = 0;
+				}
+				
+				if (searchKeyIndex > resources.length) {
+					searchKeyIndex = resources.length - 1;
+				}
+				
+				searchKey = resources[searchKeyIndex];
+				
+				if (N_resources.contains(searchKey)) {
+					System.out.println("The queried file is already in this node.");
+					logger.log(Level.INFO,"The queried file is already in this node.");
+				}
+				else {
+					String search = "SER " + N_ip + " " + N_port + " " + searchKey + " " + hops + " " + System.currentTimeMillis();
+					String msg = String.format("%04d", search.length()) + " " + search;
+					for (String key : RT.keySet()) {
+						String[] sockAdd = key.split(" ");
+						lis.send(msg, sockAdd[0], Integer.parseInt(sockAdd[1]));
+						logger.log(Level.INFO, "The Search message is sent to all the nodes in the routing table.");
+					}
+				}
+				while (true) {
+					
+					
+					if (lis.queryFlag){
+						break;						
+					}
+				}
+			}
+		} catch (NumberFormatException e) {
+			System.err.println("Error: Got non-integer port number.");
+			logger.log(Level.WARNING, "Error: Got non-integer port number.");
+		}
 	}
 	
 	public static void delUname(String uname) throws IOException {
