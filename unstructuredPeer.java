@@ -1,6 +1,6 @@
 //package UnstructuredP2P;
 
-import java.io.BufferedReader;											// Importing the neccessary classes.
+import java.io.BufferedReader;											// Importing the necessary classes.
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
@@ -45,6 +45,11 @@ public class unstructuredPeer {
 			log_file.setFormatter(formatter);
 			logger.addHandler(log_file);
 			logger.setUseParentHandlers(false);
+			
+			if (Arrays.asList(args).contains("--help") || Arrays.asList(args).contains("-h")) {
+	            System.out.println(printHelpMessage());
+	            System.exit(0);            
+	        }
 			
 			InetAddress Node_ip = InetAddress.getLocalHost();
 			N_ip = Node_ip.getHostAddress();
@@ -190,7 +195,7 @@ public class unstructuredPeer {
 					}
 					if (mark) {
 						System.out.println("Resource is already present in the node.");
-						System.out.println(N_resources);
+						System.out.println("Resources present in the node: \n" + N_resources);
 					}
 					else {
 						N_resources.put(fileN,"");
@@ -200,10 +205,11 @@ public class unstructuredPeer {
 				case "remove":											// Logic for Removing the given resource to the node.
 					//delete resource code.
 					boolean Mark = false;
+					System.out.println(fileN + "|");
 					for (String file : N_resources.keySet()) {
 						if(file.equals(fileN)) {
 							mark = true;
-							continue;
+							//continue;
 						}
 					}
 					if (Mark) {
@@ -212,7 +218,7 @@ public class unstructuredPeer {
 					}
 					else {
 						System.out.println("Resource is not present in the node.");
-						System.out.println(N_resources);
+						System.out.println("Resources present in the node: \n" + N_resources);
 					}
 					break;
 					
@@ -255,6 +261,7 @@ public class unstructuredPeer {
 					log_file.close();
 					lis.log_file.close();
 					sc.close();
+					sock.close();
 					System.exit(0);
 				case "DEL":												// Deleting the Network from the BootStrap Server.
 					try {
@@ -309,7 +316,6 @@ public class unstructuredPeer {
 			System.exit(1);
 		}
 		catch (ArrayIndexOutOfBoundsException e) {
-			System.err.println(e);
 			System.err.println("Error: Check the number of arguments given. "
 					+ "\n Command Usage: java Unstructuredpeer REG <Node_Port> <BootStrap_IP> <BootStrap_Port> <UserName>");
 			logger.log(Level.WARNING, "Invalid number of arguments given." 
@@ -317,6 +323,22 @@ public class unstructuredPeer {
 		}
 		sock.close();
 	}
+	
+	private static String printHelpMessage() {
+        StringBuilder helpBuilder = new StringBuilder();
+        helpBuilder.append("java unstructuredPeer <portnum> <bootstrap ip> <bootstrap port>");
+        helpBuilder.append(System.getProperty("line.separator"));
+        helpBuilder.append("All arguments are required.");
+        helpBuilder.append(System.getProperty("line.separator"));
+        helpBuilder.append("<portnum> is the port number at which the machine will listen to");
+        helpBuilder.append(System.getProperty("line.separator"));
+        helpBuilder.append("<bootstrap ip> is the ip address of the bootstrapper");
+        helpBuilder.append(System.getProperty("line.separator"));
+        helpBuilder.append("<bootstrap port> is the port num at which the bootstrapper will listen to");
+        helpBuilder.append(System.getProperty("line.separator"));
+        return helpBuilder.toString();
+   }
+	
 															// msgRT method for sending and receiving the packets.
 	public static String msgRT(String Message, String ip, int Port)throws IOException {
 		logger.log(Level.INFO, "Sending the message to Socket address: " + ip + " " + Port);
@@ -543,7 +565,6 @@ public class unstructuredPeer {
 			System.err.println("Error: IOException Occured.");
 			logger.log(Level.WARNING, "Error: IOException Occured while distributing the resources to the nodes.");
 		} catch (ArrayIndexOutOfBoundsException e) {
-			e.printStackTrace();
 			System.err.println("Error: ArrayIndexOutOfBoundsException occured while distributing the resources to the nodes.");
 			logger.log(Level.WARNING, "Error: ArrayIndexOutOfBoundsException occured while distributing the resources to the nodes.");
 		}
