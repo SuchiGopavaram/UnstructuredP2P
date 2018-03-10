@@ -72,7 +72,6 @@ public class peerListen extends Thread{
 	}
 	
 	public void send(String Message, String ip, int port) {          // rcv method to only receive messages.
-		System.out.println("Sending message");
 		InetAddress IP;
 		for (int i = 0; i < 3; i++) {								 // Retrying again if any error occured.
 			try {
@@ -249,7 +248,7 @@ public class peerListen extends Thread{
 						}
 						
 						String[] foundFiles = foundFilesString.split("\n");
-						System.out.println("File(s) successfully found: \n" + foundFilesString + "at "+ IP + ":" + port +" in "+ (hops)+"-"+(foundHops) + " hop(s) in "+(timeNow-sendTime)+" milliseconds");
+						System.out.println("File(s) successfully found: \n" + foundFilesString + "at "+ IP + ":" + port +" in "+ netHops + " hop(s) in "+(timeNow-sendTime)+" milliseconds");
 						queryFlag = true;
 						for (String FileName: foundFiles) {
 							innerMap = knownResourses.get(FileName);
@@ -260,6 +259,7 @@ public class peerListen extends Thread{
 						break;
 						
 					case "RESOURCES":
+						N_resources.clear();
 						String filesLine = rcvReq[0].substring(15);
 						String[] filesList = filesLine.split("\n");
 						for (String file : filesList) {

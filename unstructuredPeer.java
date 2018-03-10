@@ -208,7 +208,7 @@ public class unstructuredPeer {
 					for (String file : N_resources.keySet()) {
 						if(file.equals(fileN)) {
 							Mark = true;
-							//continue;
+							continue;
 						}
 					}
 					if (Mark) {
