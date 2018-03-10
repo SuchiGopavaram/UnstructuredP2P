@@ -205,10 +205,9 @@ public class unstructuredPeer {
 				case "remove":											// Logic for Removing the given resource to the node.
 					//delete resource code.
 					boolean Mark = false;
-					System.out.println(fileN + "|");
 					for (String file : N_resources.keySet()) {
 						if(file.equals(fileN)) {
-							mark = true;
+							Mark = true;
 							//continue;
 						}
 					}

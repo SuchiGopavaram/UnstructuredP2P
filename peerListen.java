@@ -50,11 +50,10 @@ public class peerListen extends Thread{
 	}
 	
 	public String[] rcv() {												// rcv method to only receive messages.
-		System.out.println("waiting for message");						// This allows to continuously listen.
 		byte[] rcve = new byte[1023];
 		DatagramPacket rcvpkt = new DatagramPacket(rcve, rcve.length);
 		
-		for (int i = 0; i < 3; i++) {									// Retrying again if any error occured.
+		for (int i = 0; i < 3; i++) {									// Retrying again if any error occurred.
 			try {
 				Sock.receive(rcvpkt);
 				logger.log(Level.INFO, "Packet received.");
@@ -112,10 +111,9 @@ public class peerListen extends Thread{
 			
 		} 
 		
-		while(true) {
+		while(true) {												// This allows to continuously listen.
 			while(true) {
 				try {												// Receiving the messages sent by other nodes.
-					System.out.println("Listening thread started.");
 
 					String[] rcvReq = rcv();
 					String[] msg = rcvReq[0].split(" ");
